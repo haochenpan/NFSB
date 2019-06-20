@@ -1,0 +1,20 @@
+# this workload file template includes all tunable parameters
+# put a # in front of a parameter or leaving a field empty will cause GNF to load the default value
+
+# remote DB
+remoteDB                  = redis
+remoteDBHost              = localhost
+remoteDBPort              = 6379
+remoteDBPassword          =
+
+remoteDBLoadThreadCount   = 5
+remoteDBRunThreadCount    = 5
+
+remoteDBInsertObjectRange      = 0-1000,3000-5000  # the design is not final
+remoteDBInsertObjectSizeInByte = 8
+
+remoteDBOperationCount         = 1000
+remoteDBOperationRange         = 0-1000,3000-4000  # the design is not final
+remoteDBOperationDistribution  = uniform
+remoteDBReadRatio              = 0.5
+remoteDBWriteRatio             = 0.5  # should sum up with remoteDBReadRatio to 1
