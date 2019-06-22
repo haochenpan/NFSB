@@ -4,17 +4,17 @@
 # remote DB
 remoteDB                  = redis
 remoteDBHost              = localhost
-remoteDBPort              = 6380
+remoteDBPort              = 6379
 remoteDBPassword          =
 
-remoteDBLoadThreadCount   = 5
-remoteDBRunThreadCount    = 5
+remoteDBLoadThreadCount   = 1
+remoteDBRunThreadCount    = 1
 
-remoteDBInsertKeyRange         = 0-1000, 1050-3000
-remoteDBInsertValueSizeInByte  = 8
+remoteDBInsertKeyRange         = 0-1000
+remoteDBInsertValueSizeInByte  = 64
 
 remoteDBOperationCount         = 1000
-remoteDBOperationRange         = 0-1000, 3000-4000
+remoteDBOperationRange         = 0-1000
 remoteDBOperationDistribution  = uniform
-remoteDBReadRatio              = 0.5
-remoteDBWriteRatio             = 0.5  # should sum up with remoteDBReadRatio to 1
+remoteDBReadRatio              = 0.9
+remoteDBWriteRatio             = 0.1  # won't be used, it will be calculated by (1 - remoteDBReadRatio)
