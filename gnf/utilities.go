@@ -1,5 +1,11 @@
 package gnf
 
+/*
+	Utilities which are specific to gnf
+	TODO (Roger): Move some structs to the main package
+	TODO (Roger): Fix upper lower cases
+*/
+
 import (
 	"fmt"
 	"math/rand"
@@ -57,14 +63,21 @@ type KeyRange struct {
 	EndIndex   int // exclusive
 }
 
+type Latency []time.Duration
+
 type KeyRanges []KeyRange
 
 var src = rand.NewSource(714)
-var ran = rand.New(src)
 
-const MaxUint = ^uint(0)
-const MaxInt = int(MaxUint >> 1) // int64
-const MaxIntInFloat = float64(MaxInt)
+var ran = rand.New(src) // for generator only
+
+const Letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+const (
+	MaxUint       = ^uint(0)
+	MaxInt        = int(MaxUint >> 1) // use it like the max of int64, assume the platform supports
+	MaxIntInFloat = float64(MaxInt)
+)
 
 const (
 	LoadSig ExePhase = "load"
@@ -73,12 +86,74 @@ const (
 	ReadSig  GenSig = "read"
 	WriteSig GenSig = "write"
 
-	InterruptSig ExeSig = "stop"
 	ExitSig      ExeSig = "exit"
-	Exception    ExeSig = "exception"
+	InterruptSig ExeSig = "stop"
+	ExceptionSig ExeSig = "exception"
 )
 
-const Letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+// generate a YCSB-like benchmark report
+func (bm *BmStats) String() string {
+	var str string
+	str += fmt.Sprintf("[OVERALL], RunTime(sec), %f\n", bm.Runtime)
+	str += fmt.Sprintf("[OVERALL], Throughput(ops/sec), %f\n", bm.Throughput)
+
+	if bm.SRead > 0 {
+		str += fmt.Sprintf("[READ], Operations, %.3d\n", bm.SRead)
+		str += fmt.Sprintf("[READ], AverageLatency(us), %.3f\n", bm.SReadAvgLat)
+		str += fmt.Sprintf("[READ], 95thPercentileLatency(us), %.3f\n", bm.SRead95pLat)
+	}
+
+	if bm.SWrite > 0 {
+		str += fmt.Sprintf("[WRITE], Operations, %d\n", bm.SWrite)
+		str += fmt.Sprintf("[WRITE], AverageLatency(us), %.3f\n", bm.SWriteAvgLat)
+		str += fmt.Sprintf("[WRITE], 95thPercentileLatency(us), %.3f\n", bm.SWrite95pLat)
+	}
+
+	if bm.FRead > 0 {
+		str += fmt.Sprintf("[READ-FAILED], Operations, %d\n", bm.FRead)
+		str += fmt.Sprintf("[READ-FAILED], AverageLatency(us), %.3f\n", bm.FReadAvgLat)
+		str += fmt.Sprintf("[READ-FAILED], 95thPercentileLatency(us), %.3f\n", bm.FRead95pLat)
+	}
+
+	if bm.FWrite > 0 {
+		str += fmt.Sprintf("[WRITE-FAILED], Operations, %d\n", bm.FWrite)
+		str += fmt.Sprintf("[WRITE-FAILED], AverageLatency(us), %.3f\n", bm.FWriteAvgLat)
+		str += fmt.Sprintf("[WRITE-FAILED], 95thPercentileLatency(us), %.3f\n", bm.FWrite95pLat)
+	}
+	return str
+}
+
+func (lat Latency) Len() int {
+	return len(lat)
+}
+
+func (lat Latency) Less(i, j int) bool {
+	return lat[i].Nanoseconds() < lat[j].Nanoseconds()
+}
+
+func (lat Latency) Swap(i, j int) {
+	lat[i], lat[j] = lat[j], lat[i]
+}
+
+func (lat Latency) getAvgLat() float64 {
+	if lat == nil || len(lat) == 0 {
+		return 0
+	}
+
+	idx := int(float64(len(lat)) * 0.5)
+	val := float64(lat[idx]) / float64(time.Microsecond)
+	return val
+}
+
+func (lat Latency) get95pLat() float64 {
+	if lat == nil || len(lat) == 0 {
+		return 0
+	}
+
+	idx := int(float64(len(lat)) * 0.95)
+	val := float64(lat[idx]) / float64(time.Microsecond)
+	return val
+}
 
 func (kr1 KeyRange) equal(kr2 KeyRange) bool {
 	return (kr1.StartIndex == kr2.StartIndex) &&
@@ -102,9 +177,9 @@ func (krs1 KeyRanges) equal(krs2 KeyRanges) bool {
 	return true
 }
 
-func (krs KeyRanges) keyCount() int {
+func (krs1 KeyRanges) keyCount() int {
 	sum := 0
-	for _, kr := range krs {
+	for _, kr := range krs1 {
 		sum += kr.EndIndex - kr.StartIndex
 	}
 	return sum
@@ -171,41 +246,11 @@ func keyRangesToKeys(keyRanges KeyRanges) []int64 {
 	return krs
 }
 
-func RandStringBytesRmndr(r *rand.Rand, n int) string {
+// r should be a local var in order to be thread safe
+func randString(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = Letters[r.Int63()%int64(len(Letters))]
 	}
 	return string(b)
-}
-
-func (bm *BmStats) String() string {
-	var str string
-	str += fmt.Sprintf("[OVERALL], RunTime(sec), %f\n", bm.Runtime)
-	str += fmt.Sprintf("[OVERALL], Throughput(ops/sec), %f\n", bm.Throughput)
-
-	if bm.SRead > 0 {
-		str += fmt.Sprintf("[READ], Operations, %.3d\n", bm.SRead)
-		str += fmt.Sprintf("[READ], AverageLatency(us), %.3f\n", bm.SReadAvgLat)
-		str += fmt.Sprintf("[READ], 95thPercentileLatency(us), %.3f\n", bm.SRead95pLat)
-	}
-
-	if bm.SWrite > 0 {
-		str += fmt.Sprintf("[WRITE], Operations, %d\n", bm.SWrite)
-		str += fmt.Sprintf("[WRITE], AverageLatency(us), %.3f\n", bm.SWriteAvgLat)
-		str += fmt.Sprintf("[WRITE], 95thPercentileLatency(us), %.3f\n", bm.SWrite95pLat)
-	}
-
-	if bm.FRead > 0 {
-		str += fmt.Sprintf("[READ-FAILED], Operations, %d\n", bm.FRead)
-		str += fmt.Sprintf("[READ-FAILED], AverageLatency(us), %.3f\n", bm.FReadAvgLat)
-		str += fmt.Sprintf("[READ-FAILED], 95thPercentileLatency(us), %.3f\n", bm.FRead95pLat)
-	}
-
-	if bm.FWrite > 0 {
-		str += fmt.Sprintf("[WRITE-FAILED], Operations, %d\n", bm.FWrite)
-		str += fmt.Sprintf("[WRITE-FAILED], AverageLatency(us), %.3f\n", bm.FWriteAvgLat)
-		str += fmt.Sprintf("[WRITE-FAILED], 95thPercentileLatency(us), %.3f\n", bm.FWrite95pLat)
-	}
-	return str
 }

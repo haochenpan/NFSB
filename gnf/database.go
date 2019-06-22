@@ -1,5 +1,12 @@
 package gnf
 
+/*
+	Database client interface, implementations, and DB related functions
+
+	Discussion: for method DBWrite and DBRead, should they have pointer receivers?
+
+*/
+
 import (
 	"github.com/go-redis/redis"
 	"strconv"
@@ -10,7 +17,6 @@ type DBClient interface {
 	DBRead(key string) (string, error)
 }
 
-// composite version, another impl see my prototype
 type RedisClient struct {
 	redis.Client
 }
@@ -31,15 +37,13 @@ func (cli *RedisClient) DBRead(key string) (string, error) {
 	return val, nil
 }
 
-func (wl *Workload) GetRemoteDBClients(phase ExePhase) []DBClient {
+func getRemoteDBClients(wl *Workload, phase ExePhase) []DBClient {
 
 	var num int
 	if phase == LoadSig {
 		num = wl.RemoteDBLoadThreadCount
-	} else if phase == RunSig {
-		num = wl.RemoteDBRunThreadCount
 	} else {
-		panic("not a valid phase")
+		num = wl.RemoteDBRunThreadCount
 	}
 	clients := make([]DBClient, num)
 

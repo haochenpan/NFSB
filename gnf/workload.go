@@ -1,5 +1,9 @@
 package gnf
 
+/*
+	gnf workload interpretation (from file to object) and validation
+*/
+
 import (
 	"bufio"
 	"errors"
@@ -9,8 +13,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-
 
 type Workload struct {
 	RemoteDB         string

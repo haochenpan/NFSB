@@ -1,10 +1,16 @@
 package gnf
 
+/*
+	gnf core components - threads and concurrent logic
+ */
+
 import (
 	"fmt"
 	"math/rand"
 	"os"
+	"os/signal"
 	"sort"
+	"syscall"
 	"time"
 )
 
@@ -25,7 +31,7 @@ func cliThread(genToCli <-chan GenCmd, cliToSta chan<- Stats, allToExe chan<- Ex
 		case ReadSig:
 			_, err = db.DBRead(key)
 		case WriteSig:
-			str := RandStringBytesRmndr(cliRan, cnt)
+			str := randString(cliRan, cnt)
 			time1 = time.Now()
 			err = db.DBWrite(key, str)
 		}
@@ -34,7 +40,7 @@ func cliThread(genToCli <-chan GenCmd, cliToSta chan<- Stats, allToExe chan<- Ex
 		if err != nil && phase == LoadSig {
 			_, _ = fmt.Fprintln(os.Stderr, "cliThread return early", threadIndex)
 			cliToSta <- Stats{threadIndex, false, cmd, time1, time2}
-			allToExe <- ExeCmd{Exception, "a db exception in load phase"}
+			allToExe <- ExeCmd{ExceptionSig, "a db exception in load phase"}
 			return
 		} else if err != nil {
 			cliToSta <- Stats{threadIndex, false, cmd, time1, time2}
@@ -48,76 +54,68 @@ func cliThread(genToCli <-chan GenCmd, cliToSta chan<- Stats, allToExe chan<- Ex
 }
 
 /*
-	exit condition: statCh is closed
+	exit condition: cliToSta is closed (by bmkMain)
 	it does not close any channel
 */
-func StaThread(cliToSta <-chan Stats, allToExe chan<- ExeCmd) {
-	var successRead, successWrite, failRead, failWrite int
-	var successReadLat, successWriteLat, failReadLat, failWriteLat []time.Duration
+func staThread(cliToSta <-chan Stats, allToExe chan<- ExeCmd) {
+
+	var sRead, sWrite, fRead, fWrite int
+	var sReadLat, sWriteLat = make(Latency, 0), make(Latency, 0)
+	var fReadLat, fWriteLat = make(Latency, 0), make(Latency, 0)
 
 	bmStart, bmEnd := time.Now(), time.Now()
-	for stat := range cliToSta {
-		dur := stat.end.Sub(stat.start)
 
-		if successRead == 0 && successWrite == 0 && failRead == 0 && failWrite == 0 {
-			//fmt.Println("first op arrived")
+	for stat := range cliToSta {
+
+		if sRead == 0 && sWrite == 0 && fRead == 0 && fWrite == 0 {
 			bmStart = stat.start
 		}
 
 		bmEnd = stat.end
-
+		dur := stat.end.Sub(stat.start)
 		if stat.succeed && stat.genCmd.Sig == ReadSig {
-			successRead++
-			successReadLat = append(successReadLat, dur)
+			sRead++
+			sReadLat = append(sReadLat, dur)
 		} else if stat.succeed && stat.genCmd.Sig == WriteSig {
-			successWrite++
-			successWriteLat = append(successWriteLat, dur)
+			sWrite++
+			sWriteLat = append(sWriteLat, dur)
 		} else if ! stat.succeed && stat.genCmd.Sig == ReadSig {
-			failRead++
-			failReadLat = append(failReadLat, dur)
+			fRead++
+			fReadLat = append(fReadLat, dur)
 		} else {
-			failWrite++
-			failWriteLat = append(failWriteLat, dur)
+			fWrite++
+			fWriteLat = append(fWriteLat, dur)
 		}
 	}
 
-	bmDur := bmEnd.Sub(bmStart)
+	sort.Sort(sReadLat)
+	sort.Sort(sWriteLat)
+	sort.Sort(fReadLat)
+	sort.Sort(fWriteLat)
 
-	sort.Slice(successReadLat, func(i, j int) bool { return successReadLat[i].Nanoseconds() < successReadLat[j].Nanoseconds() })
-	sort.Slice(successWriteLat, func(i, j int) bool { return successWriteLat[i].Nanoseconds() < successWriteLat[j].Nanoseconds() })
-	sort.Slice(failReadLat, func(i, j int) bool { return failReadLat[i].Nanoseconds() < failReadLat[j].Nanoseconds() })
-	sort.Slice(failWriteLat, func(i, j int) bool { return failWriteLat[i].Nanoseconds() < failWriteLat[j].Nanoseconds() })
-
-	bcStat := BmStats{
-		Runtime:    bmDur.Seconds(),
-		Throughput: float64(successRead+successWrite+failRead+failWrite) / bmDur.Seconds(),
-		SRead:      successRead,
-		SWrite:     successWrite,
-		FRead:      failRead,
-		FWrite:     failWrite,
+	runTime := bmEnd.Sub(bmStart).Seconds()
+	bmStats := BmStats{
+		Runtime:    runTime,
+		Throughput: float64(sRead+sWrite+fRead+fWrite) / runTime,
+		SRead:      sRead,
+		SWrite:     sWrite,
+		FRead:      fRead,
+		FWrite:     fWrite,
 	}
 
-	if bcStat.SRead > 0 {
-		bcStat.SReadAvgLat = float64(successReadLat[int(float64(len(successReadLat))*0.5)]) / float64(time.Microsecond)
-		bcStat.SRead95pLat = float64(successReadLat[int(float64(len(successReadLat))*0.95)]) / float64(time.Microsecond)
-	}
+	bmStats.SReadAvgLat = sReadLat.getAvgLat()
+	bmStats.SRead95pLat = sReadLat.get95pLat()
 
-	if bcStat.SWrite > 0 {
-		bcStat.SWriteAvgLat = float64(successWriteLat[int(float64(len(successWriteLat))*0.5)]) / float64(time.Microsecond)
-		bcStat.SWrite95pLat = float64(successWriteLat[int(float64(len(successWriteLat))*0.95)]) / float64(time.Microsecond)
-	}
+	bmStats.SWriteAvgLat = sWriteLat.getAvgLat()
+	bmStats.SWrite95pLat = sWriteLat.get95pLat()
 
-	if bcStat.FRead > 0 {
-		bcStat.FReadAvgLat = float64(failReadLat[int(float64(len(failReadLat))*0.5)]) / float64(time.Microsecond)
-		bcStat.FRead95pLat = float64(failReadLat[int(float64(len(failReadLat))*0.95)]) / float64(time.Microsecond)
-	}
+	bmStats.FReadAvgLat = fReadLat.getAvgLat()
+	bmStats.FReadAvgLat = fReadLat.get95pLat()
 
-	if bcStat.FWrite > 0 {
-		bcStat.FWriteAvgLat = float64(failWriteLat[int(float64(len(failWriteLat))*0.5)]) / float64(time.Microsecond)
-		bcStat.FWrite95pLat = float64(failWriteLat[int(float64(len(failWriteLat))*0.95)]) / float64(time.Microsecond)
-	}
+	bmStats.FWriteAvgLat = fWriteLat.getAvgLat()
+	bmStats.FWriteAvgLat = fWriteLat.get95pLat()
 
-	fmt.Print(bcStat.String())
+	fmt.Print(bmStats.String())
 
 	allToExe <- ExeCmd{ExitSig, "0"}
 
@@ -126,12 +124,12 @@ func StaThread(cliToSta <-chan Stats, allToExe chan<- ExeCmd) {
 /*
 	exit condition: receives InterruptSig from executor main ? OR
 					receives enough ExitSig from other threads OR
-					receives an Exception
+					receives an ExceptionSig
 	whether or not there's an exception,
 	this function shall exit gracefully and release all resources,
 	without incurring an deadlock
 
- */
+*/
 func ExecutorThread(phase ExePhase, path string) {
 	wl := InitWorkload()
 	wl.UpdateWorkloadByFile(path)
@@ -149,29 +147,33 @@ func ExecutorThread(phase ExePhase, path string) {
 	allToExe := make(chan ExeCmd)
 	cliToSta := make(chan Stats, 1000)
 
+	sigToExe := make(chan os.Signal)
+	signal.Notify(sigToExe, syscall.SIGINT, syscall.SIGTERM)
+
 	go gen.GenThread(exeToGen, genToCli, allToExe, wl, phase)
 
-	clients := wl.GetRemoteDBClients(phase)
+	clients := getRemoteDBClients(wl, phase)
 
 	for i, cli := range clients {
 		go cliThread(genToCli, cliToSta, allToExe, i, cli, phase)
 	}
 
-	go StaThread(cliToSta, allToExe)
+	go staThread(cliToSta, allToExe)
 
 	needToWait := len(clients) + 1
 	for needToWait > 0 {
 		select {
 		case cmd := <-allToExe:
 			switch cmd.Sig {
-			case InterruptSig:
-				exeToGen <- true
 			case ExitSig:
 				needToWait -= 1
-			case Exception:
+			case ExceptionSig:
 				needToWait -= 1
 				exeToGen <- true
 			}
+		case <-sigToExe:
+			_, _ = fmt.Fprintf(os.Stderr, "receive interrupt signal")
+			exeToGen <- true
 		}
 
 	}
