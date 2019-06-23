@@ -1,7 +1,7 @@
 package gnf
 
 /*
-	Types and utilities that are specific to gnf
+	Types and utilities that are specific to GNF
 	TODO (Roger): Move some structs to the main package
 	TODO (Roger): Fix upper lower cases
 */
@@ -170,7 +170,7 @@ func (krs1 KeyRanges) equal(krs2 KeyRanges) bool {
 	}
 
 	for i := range krs1 {
-		if ! krs1[i].equal(krs2[i]) {
+		if !krs1[i].equal(krs2[i]) {
 			return false
 		}
 	}

@@ -132,7 +132,9 @@ func staThread(cliToSta <-chan Stats, allToExe chan<- ExeCmd) {
 */
 func ExecutorThread(phase ExePhase, path string) {
 	wl := InitWorkload()
-	wl.UpdateWorkloadByFile(path)
+	if ret := wl.UpdateWorkloadByFile(path); ret < 0 {
+		_, _ = fmt.Fprintln(os.Stderr, "no workload file found")
+	}
 
 	var gen OpGenerator
 	switch wl.RemoteDBOperationDistribution {

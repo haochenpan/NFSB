@@ -1,7 +1,7 @@
 package gnf
 
 /*
-	gnf workload interpretation (from file to object) and validation
+	GNF workload interpretation (from file to object) and validation
 */
 
 import (
@@ -169,7 +169,6 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 }
 
 func (wl *Workload) UpdateWorkloadByFile(path string) int {
-	//fPath := "workloads/workload_template"
 
 	file, err := os.Open(path)
 	if err != nil {
