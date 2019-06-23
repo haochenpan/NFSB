@@ -1,5 +1,6 @@
 # this workload file template includes all tunable parameters
 # put a # in front of a parameter or leaving a field empty will cause GNF to load the default value
+# please update one parameter per line using a single equal sign
 
 # remote DB
 remoteDB                  = redis

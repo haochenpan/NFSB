@@ -1,0 +1,11 @@
+# a bad workload file for unit testing only
+remoteDB                  = bad_workload
+remoteDBHost              = 127.0.0.1
+
+remoteDBLoadThreadCount   = 5
+remoteDBRunThreadCount    = 10
+
+remoteDBInsertKeyRange         = 0-10000
+remoteDBInsertValueSizeInByte  = 64
+
+remoteDBOperationRange         = 0-10000

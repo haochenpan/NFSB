@@ -1,7 +1,7 @@
 package gnf
 
 /*
-	Utilities which are specific to gnf
+	Types and utilities that are specific to gnf
 	TODO (Roger): Move some structs to the main package
 	TODO (Roger): Fix upper lower cases
 */

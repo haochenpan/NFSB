@@ -54,11 +54,24 @@ func InitWorkload() *Workload {
 	}
 }
 
+func (wl *Workload) Inspect() string {
+	var str string
+	s := reflect.ValueOf(wl).Elem()
+	typeOfT := s.Type()
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		str += fmt.Sprintf("%2d: %-30s %-20s %v\n", i,
+			typeOfT.Field(i).Name, f.Type(), f.Interface())
+	}
+	return str
+}
+
 /*
 	Update a workload parameter by feeding a line that looks like param=value
 	if found no update: return 0, nil;
 	if found one update: return 1, nil;
-	if found an ill update: return -1, some_error_message OR panic.
+	if found an ill update (found a field but unsuitable value): return -1, some_error_message
 */
 func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 	if idx := strings.Index(line, "#"); idx != -1 {
@@ -100,8 +113,8 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 		val, err := strconv.ParseFloat(value, 64)
 		if err != nil {
 			return -1, errors.New("In updateing workload parameter " + param + ", " + value + " is not a float")
-		} else if val < 0 {
-			return -1, errors.New("In updateing workload parameter " + param + ", " + value + " is < 0")
+		} else if val < 0 || val > 1 {
+			return -1, errors.New("In updateing workload parameter " + param + ", " + value + " is < 0 or > 1")
 		} else if field.Float() != reflect.ValueOf(val).Float() {
 			//fmt.Println("setting a new float field")
 			field.Set(reflect.ValueOf(val))
@@ -124,7 +137,7 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 		ranges := make(KeyRanges, len(val))
 		for i, v := range val {
 			onePair := strings.Split(v, "-")
-			if len(onePair) < 2 {
+			if len(onePair) < 2 || len(onePair) > 2 {
 				return -1, errors.New("In updateing workload parameter " + param + ", " + value + " is ill formatted")
 			}
 			oneStart, err := strconv.Atoi(strings.TrimSpace(onePair[0]))
@@ -155,12 +168,12 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 	return 0, nil
 }
 
-func (wl *Workload) UpdateWorkloadByFile(path string) {
+func (wl *Workload) UpdateWorkloadByFile(path string) int {
 	//fPath := "workloads/workload_template"
 
 	file, err := os.Open(path)
 	if err != nil {
-		panic(err)
+		return -1
 	}
 	defer file.Close()
 
@@ -176,15 +189,7 @@ func (wl *Workload) UpdateWorkloadByFile(path string) {
 		}
 	}
 	fmt.Println(strconv.Itoa(updateCount) + " workload parameter(s) updated")
-	wl.Inspect()
-}
-func (wl *Workload) Inspect() {
-	s := reflect.ValueOf(wl).Elem()
-	typeOfT := s.Type()
+	fmt.Print(wl.Inspect())
+	return updateCount
 
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		fmt.Printf("%2d: %-30s %-20s %v\n", i,
-			typeOfT.Field(i).Name, f.Type(), f.Interface())
-	}
 }
