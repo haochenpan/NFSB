@@ -1,7 +1,7 @@
 package gnf
 
 /*
-	GNF core components - threads and concurrent logic
+	GNF2 core components - threads and concurrent logic
  */
 
 import (
