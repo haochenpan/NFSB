@@ -1,7 +1,7 @@
 package gnf
 
 /*
-	GNF2 workload interpretation (from file to object) and validation
+	GNF workload interpretation (from file to object) and validation
 */
 
 import (
