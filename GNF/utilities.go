@@ -7,32 +7,35 @@ package gnf
 */
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"math/rand"
+	"net"
 	"time"
 )
 
 type (
-	ExeSig string
-	GenSig string
-	ExePhase string
+	exeSig string
+	genSig string
+	exePhase string
 )
 
-type ExeCmd struct {
-	Sig ExeSig
-	Arg string
+type exeCmd struct {
+	sig exeSig
+	arg string
 }
 
-type GenCmd struct {
-	Sig  GenSig
+type genCmd struct {
+	Sig  genSig
 	Arg1 int
 	Arg2 string
 }
 
-type Stats struct {
+type stats struct {
 	threadIndex int
 	succeed     bool
-	genCmd      GenCmd
+	genCmd      genCmd
 	start       time.Time
 	end         time.Time
 }
@@ -58,18 +61,14 @@ type BmStats struct {
 	FWrite95pLat float64
 }
 
-type KeyRange struct {
+type keyRange struct {
 	StartIndex int
 	EndIndex   int // exclusive
 }
 
-type Latency []time.Duration
+type keyRanges []keyRange
 
-type KeyRanges []KeyRange
-
-var src = rand.NewSource(714)
-
-var ran = rand.New(src) // for generator only
+type latency []time.Duration
 
 const Letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -80,25 +79,28 @@ const (
 )
 
 const (
-	LoadSig ExePhase = "load"
-	RunSig  ExePhase = "run"
+	LoadSig exePhase = "load"
+	RunSig  exePhase = "run"
 
-	ReadSig  GenSig = "read"
-	WriteSig GenSig = "write"
+	ReadSig  genSig = "read"
+	WriteSig genSig = "write"
 
-	ExitSig      ExeSig = "exit"
-	InterruptSig ExeSig = "stop"
-	ExceptionSig ExeSig = "exception"
+	NExit   exeSig = "exit"      // followed by a return
+	EExit   exeSig = "exception" // followed by a return
+	GnfStop exeSig = "stop"      // never followed by a return
+	BmStop  exeSig = "bmStop"    // never followed by a return
+	ctlLoad exeSig = "load"
+	ctlRun  exeSig = "run"
 )
 
 // generate a YCSB-like benchmark report
 func (bm *BmStats) String() string {
 	var str string
-	str += fmt.Sprintf("[OVERALL], RunTime(sec), %f\n", bm.Runtime)
-	str += fmt.Sprintf("[OVERALL], Throughput(ops/sec), %f\n", bm.Throughput)
+	str += fmt.Sprintf("[OVERALL], RunTime(sec), %.3f\n", bm.Runtime)
+	str += fmt.Sprintf("[OVERALL], Throughput(ops/sec), %.3f\n", bm.Throughput)
 
 	if bm.SRead > 0 {
-		str += fmt.Sprintf("[READ], Operations, %.3d\n", bm.SRead)
+		str += fmt.Sprintf("[READ], Operations, %d\n", bm.SRead)
 		str += fmt.Sprintf("[READ], AverageLatency(us), %.3f\n", bm.SReadAvgLat)
 		str += fmt.Sprintf("[READ], 95thPercentileLatency(us), %.3f\n", bm.SRead95pLat)
 	}
@@ -123,19 +125,41 @@ func (bm *BmStats) String() string {
 	return str
 }
 
-func (lat Latency) Len() int {
+func EncodeBmStat(data *BmStats) []byte {
+	var res bytes.Buffer
+
+	enc := gob.NewEncoder(&res)
+	if err := enc.Encode(&data); err != nil {
+		return []byte{}
+	}
+	return res.Bytes()
+}
+
+func DecodeBmStat(dataBytes []byte) BmStats {
+	var buff bytes.Buffer
+	var stats BmStats
+
+	buff.Write(dataBytes)
+	dec := gob.NewDecoder(&buff)
+	if err := dec.Decode(&stats); err != nil {
+		return BmStats{}
+	}
+	return stats
+}
+
+func (lat latency) Len() int {
 	return len(lat)
 }
 
-func (lat Latency) Less(i, j int) bool {
+func (lat latency) Less(i, j int) bool {
 	return lat[i].Nanoseconds() < lat[j].Nanoseconds()
 }
 
-func (lat Latency) Swap(i, j int) {
+func (lat latency) Swap(i, j int) {
 	lat[i], lat[j] = lat[j], lat[i]
 }
 
-func (lat Latency) getAvgLat() float64 {
+func (lat latency) getAvgLat() float64 {
 	if lat == nil || len(lat) == 0 {
 		return 0
 	}
@@ -145,7 +169,7 @@ func (lat Latency) getAvgLat() float64 {
 	return val
 }
 
-func (lat Latency) get95pLat() float64 {
+func (lat latency) get95pLat() float64 {
 	if lat == nil || len(lat) == 0 {
 		return 0
 	}
@@ -155,12 +179,12 @@ func (lat Latency) get95pLat() float64 {
 	return val
 }
 
-func (kr1 KeyRange) equal(kr2 KeyRange) bool {
+func (kr1 keyRange) equal(kr2 keyRange) bool {
 	return (kr1.StartIndex == kr2.StartIndex) &&
 		(kr1.EndIndex == kr2.EndIndex)
 }
 
-func (krs1 KeyRanges) equal(krs2 KeyRanges) bool {
+func (krs1 keyRanges) equal(krs2 keyRanges) bool {
 	if (krs1 == nil) != (krs2 == nil) {
 		return false
 	}
@@ -177,7 +201,7 @@ func (krs1 KeyRanges) equal(krs2 KeyRanges) bool {
 	return true
 }
 
-func (krs1 KeyRanges) keyCount() int {
+func (krs1 keyRanges) keyCount() int {
 	sum := 0
 	for _, kr := range krs1 {
 		sum += kr.EndIndex - kr.StartIndex
@@ -201,7 +225,7 @@ func isValidDistribution(dist string) bool {
 	return false
 }
 
-func isValidKeyRange(keyRanges KeyRanges) bool {
+func isValidKeyRange(keyRanges keyRanges) bool {
 	if len(keyRanges) < 1 {
 		return false
 	}
@@ -219,7 +243,7 @@ func isValidKeyRange(keyRanges KeyRanges) bool {
 	return true
 }
 
-func keyRangesToKeys(keyRanges KeyRanges) []int64 {
+func keyRangesToKeys(keyRanges keyRanges) []int64 {
 
 	var randKeyIdx, krsKeyIdx int
 	keyCnt := keyRanges.keyCount()
@@ -250,7 +274,26 @@ func keyRangesToKeys(keyRanges KeyRanges) []int64 {
 func randString(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = Letters[r.Int63()%int64(len(Letters))]
+		//b[i] = Letters[r.Int63()%int64(len(Letters))]
+		idx := r.Int63()%int64(len(Letters))
+		//fmt.Println(idx)
+		b[i] = Letters[idx]
 	}
 	return string(b)
+}
+
+func getIp() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String(), nil
+			}
+		}
+	}
+	return "", nil
 }

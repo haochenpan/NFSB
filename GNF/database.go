@@ -37,7 +37,7 @@ func (cli *RedisClient) DBRead(key string) (string, error) {
 	return val, nil
 }
 
-func getRemoteDBClients(wl *Workload, phase ExePhase) []DBClient {
+func getRemoteDBClients(wl *Workload, phase exePhase) []DBClient {
 
 	var num int
 	if phase == LoadSig {

@@ -23,11 +23,11 @@ type Workload struct {
 	RemoteDBLoadThreadCount int
 	RemoteDBRunThreadCount  int
 
-	RemoteDBInsertKeyRange        KeyRanges
+	RemoteDBInsertKeyRange        keyRanges
 	RemoteDBInsertValueSizeInByte int
 
 	RemoteDBOperationCount        int
-	RemoteDBOperationRange        KeyRanges
+	RemoteDBOperationRange        keyRanges
 	RemoteDBOperationDistribution string
 	RemoteDBReadRatio             float64
 	RemoteDBWriteRatio            float64
@@ -43,11 +43,11 @@ func InitWorkload() *Workload {
 		RemoteDBLoadThreadCount: 1,
 		RemoteDBRunThreadCount:  1,
 
-		RemoteDBInsertKeyRange:        KeyRanges{{0, 1000}},
+		RemoteDBInsertKeyRange:        keyRanges{{0, 1000}},
 		RemoteDBInsertValueSizeInByte: 64,
 
 		RemoteDBOperationCount:        1000,
-		RemoteDBOperationRange:        KeyRanges{{0, 1000}},
+		RemoteDBOperationRange:        keyRanges{{0, 1000}},
 		RemoteDBOperationDistribution: "uniform",
 		RemoteDBReadRatio:             0.9,
 		RemoteDBWriteRatio:            0.1,
@@ -134,7 +134,7 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 
 	case reflect.Slice:
 		val := strings.Split(value, ",")
-		ranges := make(KeyRanges, len(val))
+		ranges := make(keyRanges, len(val))
 		for i, v := range val {
 			onePair := strings.Split(v, "-")
 			if len(onePair) < 2 || len(onePair) > 2 {
@@ -148,7 +148,7 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 			if err != nil {
 				return -1, errors.New("In updateing workload parameter " + param + ", " + onePair[1] + " is not an int")
 			}
-			oneRange := KeyRange{oneStart, oneEnd}
+			oneRange := keyRange{oneStart, oneEnd}
 			ranges[i] = oneRange
 		}
 
@@ -158,7 +158,7 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 		fieldSlice := field.Slice(0, field.Len())
 		value := reflect.ValueOf(ranges).Slice(0, len(ranges))
 
-		if !fieldSlice.Interface().(KeyRanges).equal(value.Interface().(KeyRanges)) {
+		if !fieldSlice.Interface().(keyRanges).equal(value.Interface().(keyRanges)) {
 			//fmt.Println("two slices are not equal!")
 			field.Set(reflect.ValueOf(ranges))
 			return 1, nil
@@ -168,6 +168,10 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 	return 0, nil
 }
 
+/*
+	return -1 if there's an exception (no workload file found) or
+	updateCount, could >= 0, if the workload object is updated
+ */
 func (wl *Workload) UpdateWorkloadByFile(path string) int {
 
 	file, err := os.Open(path)
