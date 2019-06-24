@@ -96,7 +96,10 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToCtl chan<- Bm
 	sort.Sort(fWriteLat)
 
 	runTime := bmEnd.Sub(bmStart).Seconds()
+	myIp, _ := getIp()
 	bmStats := BmStats{
+		IP:           myIp,
+		Timestamp:    time.Now().String(),
 		Runtime:      runTime,
 		Throughput:   float64(sRead+sWrite+fRead+fWrite) / runTime,
 		SRead:        sRead,
@@ -140,7 +143,7 @@ func executorRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone 
 
 	go staThread(cliToSta, allToExe, staToExe)
 
-	var bmStop, gnfStop bool               // has the bm stopped
+	var bmStop, gnfStop bool       // has the bm stopped
 	returnWait := 3                // from outside, 3 threads
 	needToWait := len(clients) + 1 // waits generator but does not wait stat thread here
 	//var doExit = func() {
@@ -154,7 +157,7 @@ func executorRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone 
 	//	}
 	//}
 
-	var doBmExit = func () {
+	var doBmExit = func() {
 		if !bmStop {
 			close(exeToGen)
 			bmStop = true

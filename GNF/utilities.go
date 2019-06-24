@@ -1,9 +1,7 @@
 package gnf
 
 /*
-	Types and utilities that are specific to GNF
-	TODO (Roger): Move some structs to the main package
-	TODO (Roger): Fix upper lower cases
+	Types and utilities of GNF
 */
 
 import (
@@ -41,6 +39,9 @@ type stats struct {
 }
 
 type BmStats struct {
+	IP        string
+	Timestamp string // e.g. get from time.Now().String()
+
 	Runtime    float64
 	Throughput float64
 
@@ -93,9 +94,14 @@ const (
 	ctlRun  exeSig = "run"
 )
 
-// generate a YCSB-like benchmark report
+// generates a YCSB-like benchmark report
 func (bm *BmStats) String() string {
+
 	var str string
+
+	str += fmt.Sprintf("[OVERALL], IP, %s\n", bm.IP)
+	str += fmt.Sprintf("[OVERALL], Timestamp, %v\n", bm.Timestamp)
+
 	str += fmt.Sprintf("[OVERALL], RunTime(sec), %.3f\n", bm.Runtime)
 	str += fmt.Sprintf("[OVERALL], Throughput(ops/sec), %.3f\n", bm.Throughput)
 
@@ -275,7 +281,7 @@ func randString(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		//b[i] = Letters[r.Int63()%int64(len(Letters))]
-		idx := r.Int63()%int64(len(Letters))
+		idx := r.Int63() % int64(len(Letters))
 		//fmt.Println(idx)
 		b[i] = Letters[idx]
 	}

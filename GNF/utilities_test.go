@@ -48,8 +48,9 @@ func Test_randString(t *testing.T) {
 }
 
 func TestBmStats_String(t *testing.T) {
+	myIp, _ := getIp()
 	bm1 := BmStats{}
-	bm2 := BmStats{1,2,3,4,5,6,7,8,9,10,11,12,13,14}
+	bm2 := BmStats{myIp, time.Now().String(),2,3,4,5,6,7,8,9,10,11,12,13,14, 15}
 	fmt.Println(bm1.String())
 	fmt.Println(bm2.String())
 }
