@@ -120,15 +120,12 @@ func CreateFile(fileName string) {
 	}
 }
 
-func AppendStatsToFile(path string, statsData DataStruct.Stats) {
+func AppendStatsToFile(path, stats string) {
 	f, err := os.OpenFile(prefix+path, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	defer f.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	latency := statsData.Latency
-	throughput := statsData.Throughput
-
-	_, err = f.WriteString("Latency : " + latency + " Throughput : " + throughput + "\n")
+	_, err = f.WriteString(stats)
 }
