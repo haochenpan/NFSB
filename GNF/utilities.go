@@ -5,11 +5,14 @@ package gnf
 */
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"math"
 	"math/rand"
 	"net"
+	"os"
 	"time"
 )
 
@@ -74,9 +77,8 @@ type latency []time.Duration
 const Letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 const (
-	MaxUint       = ^uint(0)
-	MaxInt        = int(MaxUint >> 1) // use it like the max of int64, assume the platform supports
-	MaxIntInFloat = float64(MaxInt)
+	MaxIntInFloat  = float64(math.MaxInt64) // assume the platform supports
+	MaxUintInFloat = float64(math.MaxUint64)
 )
 
 const (
@@ -86,12 +88,12 @@ const (
 	ReadSig  genSig = "read"
 	WriteSig genSig = "write"
 
-	NExit   exeSig = "exit"      // followed by a return
-	EExit   exeSig = "exception" // followed by a return
-	GnfStop exeSig = "stop"      // never followed by a return
-	BmStop  exeSig = "bmStop"    // never followed by a return
-	ctlLoad exeSig = "load"
-	ctlRun  exeSig = "run"
+	NExit    exeSig = "exit"      // followed by a return
+	EExit    exeSig = "exception" // followed by a return
+	GnfStop  exeSig = "stop"      // never followed by a return
+	BmStop   exeSig = "bmStop"    // never followed by a return
+	CtrlLoad exeSig = "load"
+	CtrlRun  exeSig = "run"
 )
 
 // generates a YCSB-like benchmark report
@@ -225,7 +227,7 @@ func isValidRemoteDB(db string) bool {
 
 func isValidDistribution(dist string) bool {
 	switch dist {
-	case "uniform":
+	case "uniform", "zipfian":
 		return true
 	}
 	return false
@@ -302,4 +304,25 @@ func getIp() (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func writeWorkloadFile(wl string, fname string) int {
+	f, err := os.Create(fname)
+	if err != nil {
+		fmt.Println("crease wl file error")
+		return -1
+	}
+
+	w := bufio.NewWriter(f)
+	_, err = w.WriteString(wl)
+	if err != nil {
+		fmt.Println("write wl file error")
+		return -1
+	}
+	if err = w.Flush(); err != nil {
+		fmt.Println("flush wl file error")
+		return -1
+	}
+	f.Close()
+	return 0
 }

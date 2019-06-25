@@ -29,6 +29,7 @@ type Workload struct {
 	RemoteDBOperationCount        int
 	RemoteDBOperationRange        keyRanges
 	RemoteDBOperationDistribution string
+	RemoteDBGlobalMaximumKeyIndex int
 	RemoteDBReadRatio             float64
 	RemoteDBWriteRatio            float64
 }
@@ -49,6 +50,7 @@ func InitWorkload() *Workload {
 		RemoteDBOperationCount:        1000,
 		RemoteDBOperationRange:        keyRanges{{0, 1000}},
 		RemoteDBOperationDistribution: "uniform",
+		RemoteDBGlobalMaximumKeyIndex: 1000,
 		RemoteDBReadRatio:             0.9,
 		RemoteDBWriteRatio:            0.1,
 	}
@@ -171,7 +173,7 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 /*
 	return -1 if there's an exception (no workload file found) or
 	updateCount, could >= 0, if the workload object is updated
- */
+*/
 func (wl *Workload) UpdateWorkloadByFile(path string) int {
 
 	file, err := os.Open(path)

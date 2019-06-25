@@ -87,3 +87,7 @@ func TestLatencies(t *testing.T) {
 	}
 
 }
+
+func Test_getIP(t *testing.T) {
+	fmt.Println(getIp())
+}

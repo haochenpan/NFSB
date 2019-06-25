@@ -1,13 +1,11 @@
 package gnf
 
 import (
-	Utility "NFSB/Config"
 	"NFSB/DataStruct"
 	"fmt"
 	zmq "github.com/pebbe/zmq4"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 )
@@ -20,20 +18,25 @@ func mockSendController() {
 
 	_ = publisher.Bind("tcp://*:6667")
 	fmt.Println("sleeping....")
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 
-	for i := 0; i < 5; i++ {
-		fmt.Println("sleeping....")
-		time.Sleep(1 * time.Second)
-		fmt.Println("sending....")
-		_, _ = publisher.SendMessage(
-			[][]byte{
-				[]byte("all!!"), //this act as a filter
-				DataStruct.Encode(&DataStruct.UserData{Action: strconv.Itoa(i)})},
-			0)
-		fmt.Println("sent!")
+	//for i := 0; i < 5; i++ {
+	//	fmt.Println("sleeping....")
+	//	time.Sleep(1 * time.Second)
+	//	fmt.Println("sending....")
+	//
+	//
+	//	fmt.Println("sent!")
+	//
+	//}
 
-	}
+	//_, _ = publisher.SendMessage([][]byte{[]byte("all"),
+	//	DataStruct.Encode(&DataStruct.UserData{Action: "interrupt"})}, 0)
+	//_, _ = publisher.SendMessage([][]byte{[]byte("all"),
+	//	DataStruct.Encode(&DataStruct.UserData{
+	//		Action:       "load",
+	//		NewWorkLoad:  true,
+	//		WorkLoadFile: ""})}, 0)
 }
 
 func mockRecvController() {
@@ -62,16 +65,17 @@ func mockRecvController() {
 
 	for i := 0; i < 1; i++ {
 		tuple, _ := sub.RecvMessageBytes(0)
-		fmt.Println("got !!!")
+		//fmt.Println("mockRecvController got !!!")
 		data := DecodeBmStat(tuple[1])
 		fmt.Println(data.String())
 	}
-	fmt.Println("mockRecvController exit")
+	_, _ = fmt.Fprintln(os.Stderr, "mockRecvController exit")
 }
 
 /*
-	exit condition: when something is sent through channel isDone (by executor)
-	does not close any channel
+	exit condition: when isDone is closed or upon exception
+	upon exit: does not close any channel
+	upon exception: may send exeCmd{EExit, "exeRecvThread exception"}
 */
 func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port string) {
 
@@ -109,7 +113,6 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 		return
 	}
 
-
 	for {
 		select {
 		case <-isDone:
@@ -118,7 +121,7 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 			return
 			// gracefully exit
 		default:
-			var tuple [][] byte // two tuple: filter and msg
+			var tuple [][] byte // three tuple: filter/flag, msg, msg_section
 			var err error
 			if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
 				//fmt.Println("err6=", err)
@@ -127,19 +130,43 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 				continue
 			}
 			data := DataStruct.Decode(tuple[1])
-			Utility.PrintUserData(data)
-			// test ip field
-			// switch on data action
+			switch data.Action {
+			case "quit":
+				allToExe <- exeCmd{GnfStop, ""}
+			case "interrupt":
+				allToExe <- exeCmd{BmStop, ""}
+			case "load", "run":
+
+				var sig exeSig
+
+				if data.Action == "load" {
+					sig = CtrlLoad
+				} else {
+					sig = CtrlRun
+
+				}
+
+				if data.NewWorkLoad {
+					fname := "workload_temp"
+					if ret := writeWorkloadFile(data.WorkLoadFile, fname); ret != -1 {
+						allToExe <- exeCmd{sig, fname}
+					}
+				} else {
+					allToExe <- exeCmd{sig, data.WorkLoadFile}
+				}
+
+			}
 		}
 
 	}
 }
 
 /*
-	exit condition: wait on isDone
-	does not close any channel
+	exit condition: when isDone is closed or upon exception
+	upon exit: does not close any channel
+	upon exception: may send exeCmd{EExit, "exeSendThread exception"}
 */
-func exeSendThread(allToExe chan<- exeCmd, isDone chan bool, exeToCtl <-chan BmStats, port string) {
+func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan BmStats, port string) {
 
 	var cxt *zmq.Context
 	var pub *zmq.Socket
@@ -179,15 +206,20 @@ func exeSendThread(allToExe chan<- exeCmd, isDone chan bool, exeToCtl <-chan BmS
 			//fmt.Println("looping...")
 			bytes := EncodeBmStat(&stat)
 			//fmt.Println(bytes)
-			if ret, err := pub.SendMessage([][]byte{[]byte("stat"), bytes}, 0); err != nil {
-				fmt.Println("err3=", err)
+			if _, err := pub.SendMessage([][]byte{[]byte("stat"), bytes}, 0); err != nil {
+				//fmt.Println("err3=", err)
 			} else {
-				fmt.Println("send,", ret)
+				//fmt.Println("send,", ret)
 			}
 		}
 	}
 }
 
+/*
+	exit condition: when isDone is closed
+	upon exit: does not close any channel
+	upon exception: no known possible exception, no exception signal
+*/
 func exeSignThread(allToExe chan<- exeCmd, isDone <-chan bool) {
 	sigToExe := make(chan os.Signal)
 	signal.Notify(sigToExe, syscall.SIGINT, syscall.SIGTERM)
@@ -199,14 +231,14 @@ func exeSignThread(allToExe chan<- exeCmd, isDone <-chan bool) {
 		case <-isDone:
 			signal.Stop(sigToExe)
 			close(sigToExe)
-			fmt.Println("exeSignThread try to exit")
+			_, _ = fmt.Fprintln(os.Stderr, "exeSignThread try to exit")
 			allToExe <- exeCmd{NExit, "exeSignThread"}
 			return
 
 		case <-sigToExe:
-			fmt.Println("GnfStop sending")
+			//fmt.Println("GnfStop sending")
 			allToExe <- exeCmd{GnfStop, "exeSignThread"}
-			fmt.Println("GnfStop sent")
+			//fmt.Println("GnfStop sent")
 
 		}
 	}

@@ -1,13 +1,13 @@
 package gnf
 
 /*
-	GNF core components - threads and concurrent logic
+	GNF core components - goroutines and concurrent logic
 */
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/pkg/errors"
 	"math/rand"
 	"os"
 	"sort"
@@ -15,9 +15,34 @@ import (
 	"time"
 )
 
+func mockCliThread(genToCli <-chan genCmd) {
+	idx := 0
+
+	requests := make(map[string]int) // key, idx
+	reqs := make([]int, 0)
+	for cmd := range genToCli {
+		if v, ok := requests[cmd.Arg2]; ok {
+			//fmt.Println(v)
+			reqs[v] ++
+		} else {
+			requests[cmd.Arg2] = idx
+			reqs = append(reqs, 1)
+			idx++
+		}
+	}
+	sum := 0
+	for i := range reqs {
+		sum += reqs[i]
+	}
+	fmt.Println(sum, len(reqs))
+	sort.Sort(sort.Reverse(sort.IntSlice(reqs)))
+	fmt.Println(reqs)
+}
+
 /*
-	exit condition: genToCli is closed (by generator) OR one err in load phase
-	it does not close any channel
+	exit condition: when genToCli is closed or upon exception in the load phase
+	upon exit: does not close any channel
+	upon exception: may send exeCmd{EExit, "cliThread exception"}
 */
 func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- exeCmd,
 	threadIndex int, db DBClient, phase exePhase) {
@@ -28,6 +53,7 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- ex
 		op, cnt, key := cmd.Sig, cmd.Arg1, cmd.Arg2
 		var err error
 
+		//fmt.Println(key)
 		time1 := time.Now()
 		switch op {
 		case ReadSig:
@@ -40,9 +66,9 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- ex
 
 		time2 := time.Now()
 		if err != nil && phase == LoadSig {
-			_, _ = fmt.Fprintln(os.Stderr, "cliThread return early", threadIndex)
+			_, _ = fmt.Fprintln(os.Stdout, "cliThread return early", threadIndex)
 			cliToSta <- stats{threadIndex, false, cmd, time1, time2}
-			allToExe <- exeCmd{EExit, "a db exception in load phase"}
+			allToExe <- exeCmd{EExit, "cliThread exception"}
 			return
 		} else if err != nil {
 			cliToSta <- stats{threadIndex, false, cmd, time1, time2}
@@ -50,14 +76,16 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- ex
 			cliToSta <- stats{threadIndex, true, cmd, time1, time2}
 		}
 	}
-	_, _ = fmt.Fprintln(os.Stderr, "cliThread return normally", threadIndex)
+	_, _ = fmt.Fprintln(os.Stdout, "cliThread return normally", threadIndex)
 	allToExe <- exeCmd{NExit, "cliThread"}
 
 }
 
 /*
-	exit condition: cliToSta is closed (by bmkMain)
-	it does not close any channel
+	exit condition: when cliToSta is closed
+	upon exit: does not close any channel
+	upon exception: no known possible exception, no exception signal
+
 */
 func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToCtl chan<- BmStats) {
 
@@ -117,45 +145,40 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToCtl chan<- Bm
 	}
 
 	allToExe <- exeCmd{NExit, "staThread"}
+	fmt.Println("staThread exits")
 	staToCtl <- bmStats
 
 }
 
 /*
-	BmStop: return 3
-	GnfStop, return 0
-	exception: return 0 for now
+	exit condition: receives GnfStop or BmStop or upon exception
+	if the last executed command is BmStop: return returnWait
+	if the last executed command is GnfStop: close isDone, return 0
+	Upon exception: close isDone, return 0 for now
 */
-func executorRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan bool, exeToCtl chan BmStats) int {
+func bmkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan bool,
+	exeToCtl chan BmStats, returnWait int) int {
 
-	exeToGen := make(chan bool)
-	genToCli := make(chan genCmd) // close by gen
-	cliToSta := make(chan stats, 1000)
-	staToExe := make(chan BmStats)
+	exeToGen := make(chan bool)        // close after for loop
+	genToCli := make(chan genCmd, 0)   // close by gen
+	cliToSta := make(chan stats, 1000) // close after for loop
+	staToExe := make(chan BmStats)     // close after for loop
 
 	gen := getOpGenerator(wl)
-	go gen.GenThread(exeToGen, genToCli, allToExe, wl, phase) // need to wait
+	go gen.GenThread(allToExe, exeToGen, genToCli, wl, phase) // need to wait
 
 	clients := getRemoteDBClients(wl, phase)
 	for i, cli := range clients {
+		//for range clients {
 		go cliThread(genToCli, cliToSta, allToExe, i, cli, phase)
+		//go mockCliThread(genToCli)
 	}
 
 	go staThread(cliToSta, allToExe, staToExe)
 
+	//returnWait := 3              // from outside, 3 threads
 	var bmStop, gnfStop bool       // has the bm stopped
-	returnWait := 3                // from outside, 3 threads
 	needToWait := len(clients) + 1 // waits generator but does not wait stat thread here
-	//var doExit = func() {
-	//	if !hasStop {
-	//		needToWait, returnWait = needToWait+returnWait, 0
-	//		close(exeToGen)
-	//		close(isDone)
-	//		hasStop = true
-	//	} else {
-	//		fmt.Println("bm already exiting!")
-	//	}
-	//}
 
 	var doBmExit = func() {
 		if !bmStop {
@@ -199,7 +222,7 @@ func executorRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone 
 				fmt.Println("received interrupt sig=", cmd.arg)
 				doGnfExit()
 
-			case ctlLoad, ctlRun:
+			case CtrlLoad, CtrlRun:
 				fmt.Println("already doing so", cmd.arg)
 
 			case BmStop:
@@ -208,11 +231,16 @@ func executorRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone 
 			}
 		}
 	}
+	if !bmStop {
+		close(exeToGen)
+	}
 	close(cliToSta)
-	fmt.Println("after cli to sta is closed, wait stat,", <-allToExe)
+	<-allToExe // wait stat
+	//fmt.Println("after cli to sta is closed, wait stat,", )
 	bmStat := <-staToExe
+	close(staToExe)
 	//fmt.Println(bmStat.String())
-	if returnWait > 0 {
+	if !bmStop {
 		exeToCtl <- bmStat
 	}
 
@@ -221,90 +249,17 @@ func executorRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone 
 }
 
 /*
-	exit condition: receives GnfStop from executor main ? OR
-					receives enough NExit from other threads OR
-					receives an EExit
+	exit condition: receives GnfStop or upon exception
 	whether or not there's an exception,
 	this function shall exit gracefully and release all resources,
 	without incurring an deadlock
-
 */
-//func bmkMain(wl *Workload, phase exePhase, exeToCtl chan BmStats) {
-//
-//	var gen OpGenerator
-//	switch wl.RemoteDBOperationDistribution {
-//	case "uniform":
-//		gen = &UniformOpGenerator{}
-//	default:
-//		panic(wl)
-//	}
-//
-//	exeToGen := make(chan bool)
-//	genToCli := make(chan genCmd)
-//	allToExe := make(chan exeCmd)
-//	cliToSta := make(chan stats, 1000)
-//	staToExe := make(chan BmStats, 1)
-//
-//	sigToExe := make(chan os.Signal)
-//	signal.Notify(sigToExe, syscall.SIGINT, syscall.SIGTERM)
-//
-//	go gen.GenThread(exeToGen, genToCli, allToExe, wl, phase)
-//
-//	clients := getRemoteDBClients(wl, phase)
-//
-//	for i, cli := range clients {
-//		go cliThread(genToCli, cliToSta, allToExe, i, cli, phase)
-//	}
-//
-//	go staThread(cliToSta, allToExe, staToExe)
-//
-//	needToWait := len(clients) + 1
-//	for needToWait > 0 {
-//		select {
-//		case cmd := <-allToExe:
-//			switch cmd.sig {
-//			case NExit:
-//				needToWait -= 1
-//			case EExit:
-//				needToWait -= 1
-//				exeToGen <- true
-//			}
-//		case <-sigToExe:
-//			_, _ = fmt.Fprintf(os.Stderr, "receive interrupt signal")
-//			exeToGen <- true
-//		}
-//
-//	}
-//	close(cliToSta)
-//	<-allToExe
-//	_, _ = fmt.Fprintln(os.Stderr, "main return normally")
-//	return <-staToExe
-//}
-
-/*
-	stop sig: nothing to interrupt, continue
-	interrupt sig, shutdown gnf
-*/
-func executorMain(controllerIp string, subPort, pubPort int) {
+func exeRoutine(controllerIp string, subPort, pubPort int) {
 
 	allToExe := make(chan exeCmd)
 	isDone := make(chan bool)
 	exeToCtl := make(chan BmStats)
 
-	go func() {
-		allToExe <- exeCmd{ctlRun, "./Config/workload_template"}
-		//allToExe <- exeCmd{ctlLoad, "./Config/workload_template"}
-		//allToExe <- exeCmd{ctlLoad, "./Config/workload_template"}
-		//allToExe <- exeCmd{BmStop, "./Config/workload_template"}
-		//allToExe <- exeCmd{BmStop, "./Config/workload_template"}
-		//allToExe <- exeCmd{GnfStop, "./Config/workload_template"}
-		//allToExe <- exeCmd{BmStop, "./Config/workload_template"}
-		//time.Sleep(4 * time.Second)
-		//allToExe <- exeCmd{BmStop, ""}
-		//time.Sleep(4 * time.Second)
-		//allToExe <- exeCmd{ctlLoad, "./Config/workload_template"}
-
-	}()
 	go exeSignThread(allToExe, isDone)                                      // needToWait, exit when isDone is closed
 	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // needToWait, exit when isDone is closed
 	go exeSendThread(allToExe, isDone, exeToCtl, strconv.Itoa(pubPort))     // needToWait, exit when isDone is closed
@@ -343,19 +298,19 @@ func executorMain(controllerIp string, subPort, pubPort int) {
 			case BmStop:
 				fmt.Println("bm is not going, signal ignored")
 
-			case ctlLoad, ctlRun:
+			case CtrlLoad, CtrlRun:
 				if ret := wl.UpdateWorkloadByFile(cmd.arg); ret < 0 {
 					fmt.Println("wl file error")
 					continue
 				}
-				needToWait = executorRoutine(wl, exePhase(cmd.sig), allToExe, isDone, exeToCtl)
+				needToWait = bmkRoutine(wl, exePhase(cmd.sig), allToExe, isDone, exeToCtl, needToWait)
 			}
 		default:
 			time.Sleep(1 * time.Second)
 		}
 	}
 
-	fmt.Println("executorMain exits")
+	fmt.Println("exeRoutine exits")
 }
 
 /*
@@ -415,16 +370,25 @@ func Main() error {
 			return errors.New(err)
 		}
 
+		allToExe := make(chan exeCmd)
+		isDone := make(chan bool)
+		exeToCtl := make(chan BmStats, 1)
+
+		go exeSignThread(allToExe, isDone) // needToWait, exit when isDone is closed
+
 		if *phase == "load" {
-			panic("not now")
-			//bmkMain(wl, LoadSig)
+			bmkRoutine(wl, LoadSig, allToExe, isDone, exeToCtl, 1)
 		} else if *phase == "run" {
-			panic("not now")
-			//bmkMain(wl, RunSig)
+			bmkRoutine(wl, RunSig, allToExe, isDone, exeToCtl, 1)
 		} else {
 			err := fmt.Sprintf("%q is not a valid argument", *phase)
 			return errors.New(err)
 		}
+
+		bm := <-exeToCtl
+
+		fmt.Println(bm.String())
+		//close()
 
 	} else {
 
@@ -441,8 +405,9 @@ func Main() error {
 		fmt.Println("controller stat port=", *stat)
 		fmt.Println()
 		fmt.Println()
-		go mockRecvController()
-		executorMain(*ip, *port, *stat)
+		//go mockSendController()
+		//go mockRecvController()
+		exeRoutine(*ip, *port, *stat)
 	}
 
 	return nil
