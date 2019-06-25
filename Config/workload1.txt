@@ -1,5 +1,5 @@
 remoteDB                  = redis
-remoteDBHost              = localhost
+remoteDBHost              = 10.128.0.22
 remoteDBPort              = 6380
 remoteDBPassword          =
 
