@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	gnfIPs  []string
-	portMap = make(map[string]string)
+	gnfIPs    []string
+	portMap   = make(map[string]string)
+	numServer int
 )
 
 func main() {
@@ -17,6 +18,7 @@ func main() {
 	// Init their IP address
 	gnfIPs = Utility.LoadGnfAddress()
 
+	numServer = len(gnfIPs)
 	var wg sync.WaitGroup
 	wg.Add(3)
 	ch := make(chan DataStruct.UserData)

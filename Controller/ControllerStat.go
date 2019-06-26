@@ -3,6 +3,7 @@ package main
 import (
 	"NFSB/Config"
 	gnf "NFSB/GNF"
+	"fmt"
 	"sync"
 
 	zmq "github.com/pebbe/zmq4"
@@ -35,10 +36,14 @@ func initControllerStatsSub(wg *sync.WaitGroup) {
 	subscriber.SetSubscribe("stat")
 	// TODO: in the future can make this parrallel working
 	for {
-		subscriber.RecvBytes(0)
-		b, _ := subscriber.RecvBytes(0)
-		stats := gnf.DecodeBmStat(b)
-		Utility.AppendStatsToFile(fileName, stats.String())
-		subscriber.RecvBytes(0)
+		for i := 0; i < numServer; i++ {
+			fmt.Println(numServer)
+			subscriber.RecvBytes(0)
+			b, _ := subscriber.RecvBytes(0)
+			stats := gnf.DecodeBmStat(b)
+			Utility.AppendStatsToFile(fileName, stats.String())
+			subscriber.RecvBytes(0)
+		}
+
 	}
 }
