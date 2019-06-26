@@ -94,6 +94,7 @@ const (
 	BmStop   exeSig = "bmStop"    // never followed by a return
 	CtrlLoad exeSig = "load"
 	CtrlRun  exeSig = "run"
+	Ready    exeSig = "ready" // two comm threads
 )
 
 // generates a YCSB-like benchmark report

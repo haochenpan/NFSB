@@ -37,10 +37,6 @@ func initGenerator(wl *Workload, phase exePhase, krs *[]int64) {
 
 }
 
-func chooseRW(rand *rand.Rand, wl *Workload) {
-
-}
-
 // return 0: sent
 // return 1: need return (exit early)
 func retrySend(allToExe chan<- exeCmd, exeToGen <-chan bool, genToCli chan<- genCmd, cmd genCmd) int {
@@ -48,7 +44,7 @@ retry:
 	for {
 		select {
 		case <-exeToGen:
-			_, _ = fmt.Fprintln(os.Stdout, "genThread return early")
+			_, _ = fmt.Fprintln(os.Stdout, "genThread return early - 1")
 			close(genToCli)
 			allToExe <- exeCmd{NExit, "GenThread"}
 			return 1
@@ -106,7 +102,7 @@ func (gen *UniformOpGenerator) GenThread(allToExe chan<- exeCmd, exeToGen <-chan
 		}
 	}
 
-	_, _ = fmt.Fprintln(os.Stderr, "genThread return normally")
+	_, _ = fmt.Fprintln(os.Stdout, "genThread return normally - 1")
 	close(genToCli)
 	allToExe <- exeCmd{NExit, "GenThread"}
 
@@ -150,7 +146,7 @@ func (gen *ZipfianOpGenerator) GenThread(allToExe chan<- exeCmd, exeToGen <-chan
 		}
 	}
 
-	_, _ = fmt.Fprintln(os.Stderr, "genThread return normally")
+	_, _ = fmt.Fprintln(os.Stdout, "genThread return normally - 1")
 	close(genToCli)
 	allToExe <- exeCmd{NExit, "GenThread"}
 

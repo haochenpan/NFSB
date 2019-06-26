@@ -69,7 +69,7 @@ func mockRecvController() {
 		data := DecodeBmStat(tuple[1])
 		fmt.Println(data.String())
 	}
-	_, _ = fmt.Fprintln(os.Stderr, "mockRecvController exit")
+	_, _ = fmt.Fprintln(os.Stdout, "mockRecvController exit")
 }
 
 /*
@@ -85,38 +85,39 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 
 	if cxt, err = zmq.NewContext(); err != nil {
 		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
-		//fmt.Println("err1=", err)
+		fmt.Println("err1=", err)
 		return
 	}
 	if sub, err = cxt.NewSocket(zmq.SUB); err != nil {
 		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
-		//fmt.Println("err2=", err)
+		fmt.Println("err2=", err)
 		return
 	}
 	defer sub.Close()
 
 	if err = sub.Connect("tcp://" + ip + ":" + port); err != nil {
 		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
-		//fmt.Println("err3=", err)
+		fmt.Println("err3=", err)
 		return
 	}
 	if err = sub.SetSubscribe("all"); err != nil {
 		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
-		//fmt.Println("err4=", err)
+		fmt.Println("err4=", err)
 		return
 	}
 
 	myIp, _ := getIp() // If migrate to different servers, need to pass in the address
 	if err = sub.SetSubscribe(myIp); err != nil {
 		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
-		//fmt.Println("err5=", err)
+		fmt.Println("err5=", err)
 		return
 	}
 
+	allToExe <- exeCmd{Ready, "exeRecvThread is ready"}
 	for {
 		select {
 		case <-isDone:
-			fmt.Println("exeRecvThread try to exit")
+			_, _ = fmt.Fprintln(os.Stdout, "exeRecvThread try to exit - 5")
 			allToExe <- exeCmd{NExit, "exeRecvThread"}
 			return
 			// gracefully exit
@@ -150,6 +151,8 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 					fname := "workload_temp"
 					if ret := writeWorkloadFile(data.WorkLoadFile, fname); ret != -1 {
 						allToExe <- exeCmd{sig, fname}
+					} else {
+						fmt.Println("error in writing ")
 					}
 				} else {
 					allToExe <- exeCmd{sig, data.WorkLoadFile}
@@ -175,20 +178,20 @@ func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan B
 	//fmt.Println("port,", port)
 	if cxt, err = zmq.NewContext(); err != nil {
 		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-		//fmt.Println("err1=", err)
+		fmt.Println("err1=", err)
 		return
 	}
 
 	if pub, err = cxt.NewSocket(zmq.PUB); err != nil {
 		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-		//fmt.Println("err2=", err)
+		fmt.Println("err2=", err)
 		return
 	}
 	defer pub.Close()
 
 	if err = pub.Bind("tcp://*:" + port); err != nil {
 		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-		//fmt.Println("err2=", err)
+		fmt.Println("err2=", err)
 		return
 	}
 
@@ -196,14 +199,16 @@ func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan B
 	//allToExe <- exeCmd{EExit, "exeRecvThread exception"}
 	//return
 	//fmt.Println("before for loop")
+
+	allToExe <- exeCmd{Ready, "exeSendThread is ready"}
 	for {
 		select {
 		case <-isDone:
-			fmt.Println("exeSendThread try to exit")
+			_, _ = fmt.Fprintln(os.Stdout, "exeSendThread try to exit - 4")
 			allToExe <- exeCmd{NExit, "exeSendThread"}
 			return
 		case stat := <-exeToCtl:
-			//fmt.Println("looping...")
+			fmt.Println("looping...")
 			bytes := EncodeBmStat(&stat)
 			//fmt.Println(bytes)
 			if _, err := pub.SendMessage([][]byte{[]byte("stat"), bytes}, 0); err != nil {
@@ -231,7 +236,7 @@ func exeSignThread(allToExe chan<- exeCmd, isDone <-chan bool) {
 		case <-isDone:
 			signal.Stop(sigToExe)
 			close(sigToExe)
-			_, _ = fmt.Fprintln(os.Stderr, "exeSignThread try to exit")
+			_, _ = fmt.Fprintln(os.Stdout, "exeSignThread try to exit - 3")
 			allToExe <- exeCmd{NExit, "exeSignThread"}
 			return
 
