@@ -30,13 +30,26 @@ func mockSendController() {
 	//
 	//}
 
-	//_, _ = publisher.SendMessage([][]byte{[]byte("all"),
-	//	DataStruct.Encode(&DataStruct.UserData{Action: "interrupt"})}, 0)
-	//_, _ = publisher.SendMessage([][]byte{[]byte("all"),
-	//	DataStruct.Encode(&DataStruct.UserData{
-	//		Action:       "load",
-	//		NewWorkLoad:  true,
-	//		WorkLoadFile: ""})}, 0)
+	_, _ = publisher.SendMessage([][]byte{[]byte("all"),
+		DataStruct.Encode(&DataStruct.UserData{Action: "interrupt"})}, 0)
+	_, _ = publisher.SendMessage([][]byte{[]byte("all"),
+		DataStruct.Encode(&DataStruct.UserData{
+			Action:       "load",
+			NewWorkLoad:  false,
+			WorkLoadFile: "Config/workload_template"})}, 0)
+	time.Sleep(10 * time.Second)
+	_, _ = publisher.SendMessage([][]byte{[]byte("all"),
+		DataStruct.Encode(&DataStruct.UserData{
+			Action:       "run",
+			NewWorkLoad:  false,
+			WorkLoadFile: "Config/workload_template"})}, 0)
+	time.Sleep(3 * time.Second)
+	_, _ = publisher.SendMessage([][]byte{[]byte("all"),
+		DataStruct.Encode(&DataStruct.UserData{Action: "interrupt"})}, 0)
+	time.Sleep(3 * time.Second)
+	_, _ = publisher.SendMessage([][]byte{[]byte("all"),
+		DataStruct.Encode(&DataStruct.UserData{Action: "quit"})}, 0)
+
 }
 
 func mockRecvController() {
@@ -113,6 +126,22 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 		return
 	}
 
+	recvChan := make(chan []byte)
+	go func() {
+		for {
+			// could sub lead to memory leak?
+			if tuple, err := sub.RecvMessageBytes(0); err == nil {
+				//fmt.Println("err6=", err)
+				//fmt.Println("sleep for one sec")
+				//time.Sleep(1 * time.Second)
+				//continue
+				recvChan <- tuple[1]
+			} else {
+				fmt.Println("recvChan error,", err)
+			}
+		}
+	}()
+
 	allToExe <- exeCmd{Ready, "exeRecvThread is ready"}
 	for {
 		select {
@@ -121,21 +150,25 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 			allToExe <- exeCmd{NExit, "exeRecvThread"}
 			return
 			// gracefully exit
-		default:
-			var tuple [][] byte // three tuple: filter/flag, msg, msg_section
-			var err error
-			if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
-				//fmt.Println("err6=", err)
-				//fmt.Println("sleep for one sec")
-				time.Sleep(1 * time.Second)
-				continue
-			}
-			data := DataStruct.Decode(tuple[1])
+		case tuple := <- recvChan:
+
+		//default:
+		//	var tuple [][] byte // three tuple: filter/flag, msg, msg_section
+		//	var err error
+		//	if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
+		//		//fmt.Println("err6=", err)
+		//		//fmt.Println("sleep for one sec")
+		//		time.Sleep(1 * time.Second)
+		//		continue
+		//	}
+			data := DataStruct.Decode(tuple)
 			switch data.Action {
 			case "quit":
 				allToExe <- exeCmd{GnfStop, ""}
+
 			case "interrupt":
 				allToExe <- exeCmd{BmStop, ""}
+
 			case "load", "run":
 
 				var sig exeSig
