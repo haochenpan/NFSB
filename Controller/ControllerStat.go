@@ -76,7 +76,7 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 	for {
 		// Wait from all the response from the server
 		fmt.Println(numServer)
-		for i := 0; i < numServer; i++ {
+		for i := 0; i < 1; i++ {
 			fmt.Println("Start to Receiving data")
 			subscriber.RecvBytes(0)
 			b, _ := subscriber.RecvBytes(0)
