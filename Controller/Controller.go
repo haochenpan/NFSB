@@ -60,7 +60,7 @@ func main() {
 		if os.Args[1] != "benchmark" {
 			fmt.Println("Cannot understand your input")
 		} else {
-			rounds, err := strconv.Atoi(os.Args[3])
+			rounds, err := strconv.Atoi(os.Args[2])
 			if err != nil {
 				log.Fatal(err)
 			}
