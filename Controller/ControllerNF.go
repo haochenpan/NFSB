@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"strconv"
 	"sync"
+	"time"
 
 	zmq "github.com/pebbe/zmq4"
 )
@@ -42,9 +43,9 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool) {
 
 	var data DataStruct.UserData
 	// Load once Run once
-	for {
+	for i := 0; i < 1; i++ {
 		//Load Phase
-		//time.Sleep(5 * time.Second)
+		time.Sleep(5 * time.Second)
 		fmt.Println("Load_Phase")
 		data.Action = "load"
 		prepareSendingToGNFsTest(data, publisher)
@@ -55,14 +56,14 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool) {
 		// fmt.Println(ok)
 
 		// //Run Phase
-		// fmt.Println("Run_Phase")
-		// data.Action = "run"
-		// //Asssuming all are going to perform the same task
-		// data.GnfIPS = gnfIPs
-		// prepareSendingToGNFs(data, publisher)
+		fmt.Println("Run_Phase")
+		data.Action = "run"
+		//Asssuming all are going to perform the same task
+		data.GnfIPS = gnfIPs
+		prepareSendingToGNFs(data, publisher)
 
-		// // Wait the result thread
-		// <-ch
+		// Wait the result thread
+		<-ch
 	}
 }
 
@@ -83,7 +84,7 @@ func prepareSendingToGNFs(data DataStruct.UserData, publisher *zmq.Socket) {
 func prepareSendingToGNFsTest(data DataStruct.UserData, publisher *zmq.Socket) {
 	data.GnfIPS = gnfIPs
 	loadNamePrefix := "workload"
-	if data.Action == "load" {
+	if data.Action == "load" || data.Action == "run" {
 		for i, gnfIP := range gnfIPs {
 			// Put the default file path to the field
 			// each workload will assign to one gnf
