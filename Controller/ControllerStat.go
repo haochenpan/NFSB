@@ -86,11 +86,6 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 			fmt.Println("Receive One Data")
 		}
 		// Send a message to the send side telling the controller that it can start to do the next command
-
-		//clear redis db
-		clearRedisDB()
-
-		fmt.Println("**************************** New round of Load and Run***********************")
 		ch <- true
 	}
 }

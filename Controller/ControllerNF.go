@@ -46,6 +46,7 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 	var data DataStruct.UserData
 	// Load once Run once
 	for i := 0; i < rounds; i++ {
+		fmt.Println("**************************** New round of Load and Run***********************")
 		//Load Phase
 		fmt.Println("Load_Phase")
 		data.Action = "load"
@@ -65,6 +66,9 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 
 		// Wait the result thread
 		<-ch
+
+		//clear redis db
+		clearRedisDB()
 	}
 }
 
