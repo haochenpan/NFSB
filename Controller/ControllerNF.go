@@ -90,7 +90,7 @@ func prepareSendingToGNFsTest(data DataStruct.UserData, publisher *zmq.Socket) {
 			// Put the default file path to the field
 			// each workload will assign to one gnf
 			data.WorkLoadFile = loadNamePrefix + strconv.Itoa(i) + ".txt"
-			go sendDataToGNF(gnfIP, data, publisher)
+			sendDataToGNF(gnfIP, data, publisher)
 		}
 	} else {
 		// Randomly choose a workloadfile for them to run
