@@ -32,7 +32,7 @@ func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 	//Need to filter out the specific IP and then send them to All
 }
 
-func initControllerPubTest(wg *sync.WaitGroup, ch chan bool) {
+func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 	defer wg.Done()
 	context, _ := zmq.NewContext()
 
@@ -45,7 +45,7 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool) {
 	time.Sleep(5 * time.Second)
 	var data DataStruct.UserData
 	// Load once Run once
-	for i := 0; i < 1; i++ {
+	for i := 0; i < rounds; i++ {
 		//Load Phase
 		fmt.Println("Load_Phase")
 		data.Action = "load"

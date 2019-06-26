@@ -4,7 +4,9 @@ import (
 	"NFSB/Config"
 	"NFSB/DataStruct"
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 	"sync"
 )
 
@@ -31,13 +33,13 @@ func running() {
 
 // For benchmark we will not have users running
 // but will make the server runs benchmark itself
-func benchmark() {
+func benchmark(rounds int) {
 	fmt.Println("Benchmarking")
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	statsCh := make(chan bool)
-	go initControllerPubTest(&wg, statsCh)
+	go initControllerPubTest(&wg, statsCh, rounds)
 
 	//Testing:
 	// Subscriber listening the stats published by the Gnfs
@@ -54,11 +56,15 @@ func main() {
 	fmt.Println(numServer)
 	if len(os.Args) == 1 {
 		running()
-	} else if len(os.Args) == 2 {
+	} else if len(os.Args) == 3 {
 		if os.Args[1] != "benchmark" {
 			fmt.Println("Cannot understand your input")
 		} else {
-			benchmark()
+			rounds, err := strconv.Atoi(os.Args[3])
+			if err != nil {
+				log.Fatal(err)
+			}
+			benchmark(rounds)
 		}
 	} else {
 		fmt.Println("Invalid Mode")
