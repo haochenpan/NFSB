@@ -41,11 +41,12 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool) {
 	port, _ := portMap["controller_nf_port"]
 	publisher.Bind("tcp://*:" + port)
 
+	//Need some time for server to bind
+	time.Sleep(5 * time.Second)
 	var data DataStruct.UserData
 	// Load once Run once
 	for i := 0; i < 1; i++ {
 		//Load Phase
-		time.Sleep(5 * time.Second)
 		fmt.Println("Load_Phase")
 		data.Action = "load"
 		prepareSendingToGNFsTest(data, publisher)
@@ -60,7 +61,7 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool) {
 		data.Action = "run"
 		//Asssuming all are going to perform the same task
 		data.GnfIPS = gnfIPs
-		prepareSendingToGNFs(data, publisher)
+		prepareSendingToGNFsTest(data, publisher)
 
 		// Wait the result thread
 		<-ch
@@ -88,15 +89,12 @@ func prepareSendingToGNFsTest(data DataStruct.UserData, publisher *zmq.Socket) {
 		for i, gnfIP := range gnfIPs {
 			// Put the default file path to the field
 			// each workload will assign to one gnf
-			fmt.Println(gnfIP)
-			data.NewWorkLoad = false
 			data.WorkLoadFile = loadNamePrefix + strconv.Itoa(i) + ".txt"
 			go sendDataToGNF(gnfIP, data, publisher)
 		}
 	} else {
 		// Randomly choose a workloadfile for them to run
 		i := rand.Intn(9)
-		data.NewWorkLoad = false
 		data.WorkLoadFile = loadNamePrefix + strconv.Itoa(i)
 		if len(data.GnfIPS) == len(gnfIPs) {
 			fmt.Println("Broadcast")
