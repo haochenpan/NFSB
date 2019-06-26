@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"strconv"
 	"sync"
-	"time"
 
 	zmq "github.com/pebbe/zmq4"
 )
@@ -45,14 +44,14 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool) {
 	// Load once Run once
 	for {
 		//Load Phase
-		time.Sleep(5 * time.Second)
+		//time.Sleep(5 * time.Second)
 		fmt.Println("Load_Phase")
 		data.Action = "load"
 		prepareSendingToGNFsTest(data, publisher)
 
 		// time.Sleep(100 * time.Second)
 		// Wait until the stats channel
-		// <-ch
+		<-ch
 		// fmt.Println(ok)
 
 		// //Run Phase
