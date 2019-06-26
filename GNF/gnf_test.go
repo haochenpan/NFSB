@@ -1,4 +1,7 @@
 package gnf
 
-func ExampleExecutorMain() {
+import "testing"
+
+func TestGnfMain(t *testing.T) {
+
 }
