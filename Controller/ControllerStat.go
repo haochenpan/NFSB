@@ -4,8 +4,11 @@ import (
 	"NFSB/Config"
 	gnf "NFSB/GNF"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/go-redis/redis"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -37,7 +40,6 @@ func initControllerStatsSub(wg *sync.WaitGroup) {
 	// TODO: in the future can make this parrallel working
 	for {
 		for i := 0; i < numServer; i++ {
-			fmt.Println(numServer)
 			subscriber.RecvBytes(0)
 			b, _ := subscriber.RecvBytes(0)
 			stats := gnf.DecodeBmStat(b)
@@ -75,7 +77,6 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 	// TODO: in the future can make this parrallel working
 	for {
 		// Wait from all the response from the server
-		fmt.Println(numServer)
 		for i := 0; i < numServer; i++ {
 			subscriber.RecvBytes(0)
 			b, _ := subscriber.RecvBytes(0)
@@ -86,11 +87,36 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 		}
 		// Send a message to the send side telling the controller that it can start to do the next command
 
-		// Need to clear redis db
+		//clear redis db
+		clearRedisDB()
+
+		fmt.Println("**************************** New round of Load and Run***********************")
 		ch <- true
 	}
 }
 
 func clearRedisDB() {
+	sizeCmd := redisClient.DBSize()
+	count, _ := sizeCmd.Result()
+	fmt.Println("Before cleaning up db's count = " + strconv.FormatInt(count, 10))
+	//Clean up the db
+	redisClient.FlushAllAsync()
+	sizeCmd = redisClient.DBSize()
+	count, _ = sizeCmd.Result()
+	fmt.Println("After cleaning up db's count = " + strconv.FormatInt(count, 10))
+}
 
+func ExampleNewClient() *redis.Client {
+	ipList := Utility.ReadRedisIP()
+	ip_port := ipList[0]
+	l := strings.Fields(ip_port)
+	redis_ip := l[0]
+	redis_port := l[1]
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     redis_ip + ":" + redis_port,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	return client
 }

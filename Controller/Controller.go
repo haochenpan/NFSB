@@ -8,12 +8,15 @@ import (
 	"os"
 	"strconv"
 	"sync"
+
+	"github.com/go-redis/redis"
 )
 
 var (
-	gnfIPs    []string
-	portMap   = make(map[string]string)
-	numServer int
+	gnfIPs      []string
+	portMap     = make(map[string]string)
+	numServer   int
+	redisClient *redis.Client
 )
 
 func running() {
@@ -53,7 +56,9 @@ func main() {
 	// Init their IP address
 	gnfIPs = Utility.LoadGnfAddress()
 	numServer = len(gnfIPs)
-	fmt.Println(numServer)
+
+	//Initiate redis Client
+	redisClient = ExampleNewClient()
 	if len(os.Args) == 1 {
 		running()
 	} else if len(os.Args) == 3 {

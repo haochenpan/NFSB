@@ -32,6 +32,25 @@ func ReadControllerIp() string {
 	return ""
 }
 
+func ReadRedisIP() []string {
+	var redisIP []string
+	file, err := os.Open(prefix + "RedisConfig.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		redisIP = append(redisIP, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return redisIP
+}
+
 func ReadGNFIP() []string {
 	var gnfIP []string
 	file, err := os.Open(prefix + "GNFIP.txt")

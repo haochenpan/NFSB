@@ -30,10 +30,6 @@ func getOutboundIP() {
 	}
 }
 
-func main() {
-	fmt.Println(getOutboundIP)
-}
-
 func loadText() {
 	dir, err := os.Getwd()
 	if err != nil {
