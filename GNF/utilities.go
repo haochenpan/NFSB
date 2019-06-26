@@ -255,6 +255,8 @@ func isValidKeyRange(keyRanges keyRanges) bool {
 func keyRangesToKeys(keyRanges keyRanges) []int64 {
 
 	var randKeyIdx, krsKeyIdx int
+	var src = rand.NewSource(714) // for generator only
+	var ran = rand.New(src)
 	keyCnt := keyRanges.keyCount()
 	krs := make([]int64, keyCnt)
 	for _, keyRange := range keyRanges {

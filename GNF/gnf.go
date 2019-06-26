@@ -283,14 +283,14 @@ func executorRoutine(controllerIp string, subPort, pubPort int) {
 	isDone := make(chan bool)
 	exeToCtl := make(chan BmStats)
 
-	go func() {
-		time.Sleep(2 * time.Second)
-		allToExe <- exeCmd{CtrlLoad, "Config/workload_template"}
-		time.Sleep(2 * time.Second)
-		allToExe <- exeCmd{BmStop, ""}
-		time.Sleep(2 * time.Second)
-		allToExe <- exeCmd{GnfStop, ""}
-	}()
+	//go func() {
+	//	time.Sleep(2 * time.Second)
+	//	allToExe <- exeCmd{CtrlLoad, "Config/workload_template"}
+	//	time.Sleep(2 * time.Second)
+	//	allToExe <- exeCmd{BmStop, ""}
+	//	time.Sleep(2 * time.Second)
+	//	allToExe <- exeCmd{GnfStop, ""}
+	//}()
 
 	go exeSignThread(allToExe, isDone)                                      // needToWait, exit when isDone is closed
 	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // needToWait, exit when isDone is closed
@@ -426,7 +426,7 @@ func GnfMain() error {
 
 		if *phase == "load" {
 			gnfStop, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
-
+			//gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
 		} else if *phase == "run" {
 			gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
 			//ret = benchmarkRoutine(wl, RunSig, allToExe, isDone, exeToCtl, 1)

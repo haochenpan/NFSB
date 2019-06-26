@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	if err := gnf.Main(); err != nil {
+	if err := gnf.GnfMain(); err != nil {
 		fmt.Println(err)
 	}
 }
