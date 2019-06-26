@@ -350,8 +350,8 @@ func executorRoutine(controllerIp string, subPort, pubPort int) {
 					doExit()
 				}
 			}
-		default:
-			time.Sleep(1 * time.Second)
+		//default:
+		//	time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -462,8 +462,8 @@ func GnfMain() error {
 		fmt.Println("controller ip=", *ip)
 		fmt.Println("controller nf port=", *port)
 		fmt.Println("controller stat port=", *stat)
-		fmt.Println()
-		fmt.Println()
+		//fmt.Println()
+		//fmt.Println()
 		//go mockSendController()
 		//go mockRecvController()
 
