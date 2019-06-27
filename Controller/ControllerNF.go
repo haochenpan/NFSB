@@ -51,7 +51,9 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 		Utility.AppendStatsToFile(fileName, seperator)
 
 		fmt.Println("**************************** New round of Load and Run***********************")
+
 		//Load Phase
+		Utility.AppendStatsToFile(fileName, "Load Phase\n")
 		fmt.Println("Load_Phase")
 		data.Action = "load"
 		prepareSendingToGNFsTest(data, publisher)
@@ -63,6 +65,7 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 
 		// //Run Phase
 		fmt.Println("Run_Phase")
+		Utility.AppendStatsToFile(fileName, "Run Phase\n")
 		data.Action = "run"
 		//Asssuming all are going to perform the same task
 		data.GnfIPS = gnfIPs
@@ -73,7 +76,7 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 
 		//clear redis db
 		clearRedisDB()
-		Utility.AppendStatsToFile(fileName, "/n")
+		Utility.AppendStatsToFile(fileName, "\n")
 	}
 }
 
