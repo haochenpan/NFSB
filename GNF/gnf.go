@@ -15,29 +15,29 @@ import (
 	"time"
 )
 
-func mockCliThread(genToCli <-chan genCmd) {
-	idx := 0
-
-	requests := make(map[string]int) // key, idx
-	reqs := make([]int, 0)
-	for cmd := range genToCli {
-		if v, ok := requests[cmd.Arg2]; ok {
-			//fmt.Println(v)
-			reqs[v] ++
-		} else {
-			requests[cmd.Arg2] = idx
-			reqs = append(reqs, 1)
-			idx++
-		}
-	}
-	sum := 0
-	for i := range reqs {
-		sum += reqs[i]
-	}
-	fmt.Println(sum, len(reqs))
-	sort.Sort(sort.Reverse(sort.IntSlice(reqs)))
-	fmt.Println(reqs)
-}
+//func mockCliThread(genToCli <-chan genCmd) {
+//	idx := 0
+//
+//	requests := make(map[string]int) // key, idx
+//	reqs := make([]int, 0)
+//
+//	for cmd := range genToCli {
+//		if v, ok := requests[cmd.Arg2]; ok {
+//			reqs[v] ++
+//		} else {
+//			requests[cmd.Arg2] = idx
+//			reqs = append(reqs, 1)
+//			idx++
+//		}
+//	}
+//	sum := 0
+//	for i := range reqs {
+//		sum += reqs[i]
+//	}
+//	fmt.Println(sum, len(reqs))
+//	sort.Sort(sort.Reverse(sort.IntSlice(reqs)))
+//	fmt.Println(reqs)
+//}
 
 /*
 	exit condition: when genToCli is closed or upon exception in the load phase
@@ -49,24 +49,27 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- ex
 
 	var cliSrc = rand.NewSource(int64(threadIndex + 714))
 	var cliRan = rand.New(cliSrc)
+
 	for cmd := range genToCli {
 		op, cnt, key := cmd.Sig, cmd.Arg1, cmd.Arg2
 		var err error
 
-		//fmt.Println(key)
-		time1 := time.Now()
+		var time1, time2 time.Time
+
 		switch op {
 		case ReadSig:
+			time1 = time.Now()
 			_, err = db.DBRead(key)
+
 		case WriteSig:
 			str := randString(cliRan, cnt)
 			time1 = time.Now()
 			err = db.DBWrite(key, str)
 		}
 
-		time2 := time.Now()
+		time2 = time.Now()
 		if err != nil && phase == LoadSig {
-			_, _ = fmt.Fprintln(os.Stdout, "cliThread return early", threadIndex)
+			_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return early, idx=", threadIndex)
 			cliToSta <- stats{threadIndex, false, cmd, time1, time2}
 			allToExe <- exeCmd{EExit, "cliThread exception"}
 			return
@@ -76,18 +79,18 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- ex
 			cliToSta <- stats{threadIndex, true, cmd, time1, time2}
 		}
 	}
-	_, _ = fmt.Fprintln(os.Stdout, "cliThread return normally", threadIndex)
+	_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return normally, idx=", threadIndex)
 	allToExe <- exeCmd{NExit, "cliThread"}
 
 }
 
 /*
 	exit condition: when cliToSta is closed
-	upon exit: does not close any channel
+	upon exit: close staToExe
 	upon exception: no known possible exception, no exception signal
 
 */
-func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToCtl chan<- BmStats) {
+func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- BmStats) {
 
 	var sRead, sWrite, fRead, fWrite int
 	var sReadLat, sWriteLat = make(latency, 0), make(latency, 0)
@@ -144,9 +147,10 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToCtl chan<- Bm
 		FWrite95pLat: fWriteLat.get95pLat(),
 	}
 
+	_, _ = fmt.Fprintln(os.Stdout, "staThread tries to return normally - 2")
 	allToExe <- exeCmd{NExit, "staThread"}
-	fmt.Println("staThread exits")
-	staToCtl <- bmStats
+	staToExe <- bmStats
+	close(staToExe)
 
 }
 
@@ -155,14 +159,22 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToCtl chan<- Bm
 	if the last executed command is BmStop: return returnWait
 	if the last executed command is GnfStop: close isDone, return 0
 	Upon exception: close isDone, return 0 for now
+
+	if only processes BmStop, if there's a GnfStop signal comes in,
+	it will notify executorRoutine to process that signal.
+
+	we assume two pub sub threads and os signal thread are fault free when this method
+	start to execute. However, when there's an error in pub thread, bm stats just get dropped
+
+	// bool: has GnfStop been called?
+	// BmStats:
 */
-func bmkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan bool,
-	exeToCtl chan BmStats, returnWait int) int {
+func benchmarkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd) (bool, BmStats) {
 
 	exeToGen := make(chan bool)        // close after for loop
 	genToCli := make(chan genCmd, 0)   // close by gen
 	cliToSta := make(chan stats, 1000) // close after for loop
-	staToExe := make(chan BmStats)     // close after for loop
+	staToExe := make(chan BmStats)     // close by sta
 
 	gen := getOpGenerator(wl)
 	go gen.GenThread(allToExe, exeToGen, genToCli, wl, phase) // need to wait
@@ -176,8 +188,7 @@ func bmkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan 
 
 	go staThread(cliToSta, allToExe, staToExe)
 
-	//returnWait := 3              // from outside, 3 threads
-	var bmStop, gnfStop bool       // has the bm stopped
+	var bmStop, shouldGnfStop bool // has the bm stopped
 	needToWait := len(clients) + 1 // waits generator but does not wait stat thread here
 
 	var doBmExit = func() {
@@ -185,21 +196,21 @@ func bmkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan 
 			close(exeToGen)
 			bmStop = true
 		} else {
-			fmt.Println("bm already exiting!")
+			_, _ = fmt.Fprintln(os.Stdout, "bm already exiting!")
 		}
 	}
 
-	var doGnfExit = func() {
-		doBmExit()
-		if !gnfStop {
-			needToWait, returnWait = needToWait+returnWait, 0
-			close(isDone)
-			gnfStop = true
-		} else {
-			fmt.Println("gnf already exiting!")
-
-		}
-	}
+	//var doGnfExit = func() {
+	//	doBmExit()
+	//	if !shouldGnfStop {
+	//		needToWait, returnWait = needToWait+returnWait, 0
+	//		close(isDone)
+	//		shouldGnfStop = true
+	//	} else {
+	//		_, _ = fmt.Fprintln(os.Stdout, "gnf already exiting!")
+	//
+	//	}
+	//}
 
 	for needToWait > 0 {
 
@@ -217,10 +228,14 @@ func bmkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan 
 				fmt.Println("received exception exit=", cmd.arg)
 				needToWait--
 				doBmExit()
+				shouldGnfStop = true
+				//doGnfExit()
 
 			case GnfStop:
 				fmt.Println("received interrupt sig=", cmd.arg)
-				doGnfExit()
+				doBmExit()
+				shouldGnfStop = true
+				//doGnfExit()
 
 			case CtrlLoad, CtrlRun:
 				fmt.Println("already doing so", cmd.arg)
@@ -231,20 +246,28 @@ func bmkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan 
 			}
 		}
 	}
-	if !bmStop {
-		close(exeToGen)
-	}
-	close(cliToSta)
-	<-allToExe // wait stat
+
+	doBmExit()
+
+	// at this point, only sta thread and 3 outside threads are running
+	close(cliToSta) // notify sta thread the benchmark is done
+	//fmt.Println("before wait stat")
+	e := <-allToExe // wait stat's signal
+	fmt.Println("from allToExe", e.arg)
+
+	//fmt.Println("after wait stat")
+
 	//fmt.Println("after cli to sta is closed, wait stat,", )
 	bmStat := <-staToExe
-	close(staToExe)
-	//fmt.Println(bmStat.String())
-	if !bmStop {
-		exeToCtl <- bmStat
-	}
 
-	return returnWait
+	//fmt.Println("after wait bmStat")
+
+	//fmt.Println(bmStat.String())
+	//fmt.Println("before !bmStop")
+	//fmt.Println("!bmStop")
+	//exeToCtl <- bmStat // if gnf-cli, receive in GnfMain; if gnf, receive in executorRoutine
+	//fmt.Println("returnWait=", returnWait)
+	return shouldGnfStop, bmStat
 
 }
 
@@ -254,25 +277,43 @@ func bmkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd, isDone chan 
 	this function shall exit gracefully and release all resources,
 	without incurring an deadlock
 */
-func exeRoutine(controllerIp string, subPort, pubPort int) {
+func executorRoutine(controllerIp string, subPort, pubPort int) {
 
 	allToExe := make(chan exeCmd)
 	isDone := make(chan bool)
 	exeToCtl := make(chan BmStats)
 
+	//go func() {
+	//	time.Sleep(2 * time.Second)
+	//	allToExe <- exeCmd{CtrlLoad, "Config/workload_template"}
+	//	time.Sleep(2 * time.Second)
+	//	allToExe <- exeCmd{BmStop, ""}
+	//	time.Sleep(2 * time.Second)
+	//	allToExe <- exeCmd{GnfStop, ""}
+	//}()
+
 	go exeSignThread(allToExe, isDone)                                      // needToWait, exit when isDone is closed
 	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // needToWait, exit when isDone is closed
 	go exeSendThread(allToExe, isDone, exeToCtl, strconv.Itoa(pubPort))     // needToWait, exit when isDone is closed
 
+	for i:=0; i<2; i++ {
+		sig := <- allToExe
+		if sig.sig != Ready {
+			fmt.Println(sig.arg)
+			return
+		}
+		fmt.Println(sig.arg)
+	}
 	var wl *Workload
 	wl = InitWorkload()
 
-	var hasDone bool
+	var hasGnfStopCalled, alreadyExit bool
+	var bmStat BmStats
 	var needToWait = 3
 	var doExit = func() {
-		if !hasDone {
+		if !alreadyExit {
 			close(isDone)
-			hasDone = true
+			alreadyExit = true
 		} else {
 			fmt.Println("already exiting!")
 		}
@@ -303,14 +344,18 @@ func exeRoutine(controllerIp string, subPort, pubPort int) {
 					fmt.Println("wl file error")
 					continue
 				}
-				needToWait = bmkRoutine(wl, exePhase(cmd.sig), allToExe, isDone, exeToCtl, needToWait)
+				hasGnfStopCalled, bmStat = benchmarkRoutine(wl, exePhase(cmd.sig), allToExe)
+				exeToCtl <- bmStat
+				if hasGnfStopCalled {
+					doExit()
+				}
 			}
-		default:
-			time.Sleep(1 * time.Second)
+		//default:
+		//	time.Sleep(1 * time.Second)
 		}
 	}
 
-	fmt.Println("exeRoutine exits")
+	fmt.Println("executorRoutine exits")
 }
 
 /*
@@ -322,7 +367,7 @@ func exeRoutine(controllerIp string, subPort, pubPort int) {
 	returns some_error_with_msg if there's an exception
 	or nil if everything works as intended
 */
-func Main() error {
+func GnfMain() error {
 
 	gnf := flag.NewFlagSet("gnf", flag.ExitOnError)
 	ip := gnf.String("ip", "127.0.0.1", "controller ip")
@@ -370,24 +415,38 @@ func Main() error {
 			return errors.New(err)
 		}
 
+		var gnfStop bool
 		allToExe := make(chan exeCmd)
 		isDone := make(chan bool)
-		exeToCtl := make(chan BmStats, 1)
+		//exeToCtl := make(chan BmStats, 0)
+
+		var bmStat BmStats
 
 		go exeSignThread(allToExe, isDone) // needToWait, exit when isDone is closed
 
 		if *phase == "load" {
-			bmkRoutine(wl, LoadSig, allToExe, isDone, exeToCtl, 1)
+			gnfStop, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
+			//gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
 		} else if *phase == "run" {
-			bmkRoutine(wl, RunSig, allToExe, isDone, exeToCtl, 1)
+			gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
+			//ret = benchmarkRoutine(wl, RunSig, allToExe, isDone, exeToCtl, 1)
 		} else {
 			err := fmt.Sprintf("%q is not a valid argument", *phase)
 			return errors.New(err)
 		}
 
-		bm := <-exeToCtl
+		//fmt.Println("ret=", ret)
+		//bm := <-exeToCtl
+		fmt.Println("gnfStop=", gnfStop)
+		fmt.Println(bmStat.String())
+		close(isDone)
+		e := <-allToExe
+		fmt.Println("from allToExe", e.arg)
+		fmt.Println("main exits")
+		//if ret != 0 {
 
-		fmt.Println(bm.String())
+		//}
+
 		//close()
 
 	} else {
@@ -403,11 +462,12 @@ func Main() error {
 		fmt.Println("controller ip=", *ip)
 		fmt.Println("controller nf port=", *port)
 		fmt.Println("controller stat port=", *stat)
-		fmt.Println()
-		fmt.Println()
+		//fmt.Println()
+		//fmt.Println()
 		//go mockSendController()
 		//go mockRecvController()
-		exeRoutine(*ip, *port, *stat)
+
+		executorRoutine(*ip, *port, *stat)
 	}
 
 	return nil
