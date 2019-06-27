@@ -47,7 +47,8 @@ import (
 func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- exeCmd,
 	threadIndex int, db DBClient, phase exePhase) {
 
-	var cliSrc = rand.NewSource(int64(threadIndex + 714))
+	var cliSrc = rand.NewSource(time.Now().UTC().UnixNano())
+
 	var cliRan = rand.New(cliSrc)
 
 	for cmd := range genToCli {
@@ -296,8 +297,8 @@ func executorRoutine(controllerIp string, subPort, pubPort int) {
 	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // needToWait, exit when isDone is closed
 	go exeSendThread(allToExe, isDone, exeToCtl, strconv.Itoa(pubPort))     // needToWait, exit when isDone is closed
 
-	for i:=0; i<2; i++ {
-		sig := <- allToExe
+	for i := 0; i < 2; i++ {
+		sig := <-allToExe
 		if sig.sig != Ready {
 			fmt.Println(sig.arg)
 			return
@@ -350,8 +351,8 @@ func executorRoutine(controllerIp string, subPort, pubPort int) {
 					doExit()
 				}
 			}
-		//default:
-		//	time.Sleep(1 * time.Second)
+			//default:
+			//	time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -426,10 +427,12 @@ func GnfMain() error {
 
 		if *phase == "load" {
 			gnfStop, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
-			//gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
 		} else if *phase == "run" {
 			gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
-			//ret = benchmarkRoutine(wl, RunSig, allToExe, isDone, exeToCtl, 1)
+		} else if *phase == "loadrun" {
+			gnfStop, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
+			fmt.Println(bmStat.String())
+			gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
 		} else {
 			err := fmt.Sprintf("%q is not a valid argument", *phase)
 			return errors.New(err)
