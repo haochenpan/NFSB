@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"time"
 )
 
 
@@ -64,7 +65,7 @@ func (gen *UniformOpGenerator) GenThread(allToExe chan<- exeCmd, exeToGen <-chan
 	var krs []int64
 	var sig genSig
 	var cmd genCmd
-	var src = rand.NewSource(714) // for generator only
+	var src = rand.NewSource(time.Now().UTC().UnixNano())
 	var ran = rand.New(src)
 
 	initGenerator(wl, phase, &krs)
@@ -112,7 +113,7 @@ func (gen *ZipfianOpGenerator) GenThread(allToExe chan<- exeCmd, exeToGen <-chan
 	var krs []int64
 	var sig genSig
 	var cmd genCmd
-	var src = rand.NewSource(714) // for generator only
+	var src = rand.NewSource(time.Now().UTC().UnixNano())
 	var ran = rand.New(src)
 	var zipf = rand.NewZipf(ran, 1.03, 1, uint64(len(krs)))
 
