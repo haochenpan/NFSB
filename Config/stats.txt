@@ -1,5 +1,0 @@
-[OVERALL], IP, 
-[OVERALL], Timestamp, 
-[OVERALL], RunTime(sec), 0.000
-[OVERALL], Throughput(ops/sec), 0.000
-****************** round 1 ************************************
