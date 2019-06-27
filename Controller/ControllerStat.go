@@ -52,7 +52,6 @@ func initControllerStatsSub(wg *sync.WaitGroup) {
 
 func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 	fileName := "stats.txt"
-	Utility.CreateFile(fileName)
 	defer wg.Done()
 	context, _ := zmq.NewContext()
 
@@ -76,11 +75,8 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 	subscriber.SetSubscribe("stat")
 	// TODO: in the future can make this parrallel working
 	var round int64
-	round = 1
 	for {
 		// Wait from all the response from the server
-		seperator := "****************** round " + strconv.FormatInt(round, 10) + " ************************************"
-		Utility.AppendStatsToFile(fileName, seperator)
 		for i := 0; i < numServer; i++ {
 			subscriber.RecvBytes(0)
 			b, _ := subscriber.RecvBytes(0)
@@ -88,6 +84,7 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 			Utility.AppendStatsToFile(fileName, stats.String())
 			subscriber.RecvBytes(0)
 			fmt.Println("Receive One Data")
+			round++
 		}
 		// Send a message to the send side telling the controller that it can start to do the next command
 		ch <- true

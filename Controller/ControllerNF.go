@@ -46,6 +46,10 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 	var data DataStruct.UserData
 	// Load once Run once
 	for i := 0; i < rounds; i++ {
+		fileName := "stats.txt"
+		seperator := "****************** round " + strconv.Itoa(i+1) + " ************************************\n"
+		Utility.AppendStatsToFile(fileName, seperator)
+
 		fmt.Println("**************************** New round of Load and Run***********************")
 		//Load Phase
 		fmt.Println("Load_Phase")
@@ -69,6 +73,7 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 
 		//clear redis db
 		clearRedisDB()
+		Utility.AppendStatsToFile(fileName, "/n")
 	}
 }
 

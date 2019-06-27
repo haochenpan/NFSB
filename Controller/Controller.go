@@ -51,6 +51,9 @@ func benchmark(rounds int) {
 }
 
 func main() {
+	fileName := "stats.txt"
+	Utility.CreateFile(fileName)
+
 	// Load port Parameter
 	Utility.LoadPortConfig(portMap)
 	// Init their IP address
