@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	gnfIPs      []string
-	portMap     = make(map[string]string)
-	numServer   int
-	redisClient *redis.Client
+	gnfIPs       []string
+	portMap      = make(map[string]string)
+	numServer    int
+	redisClients []*redis.Client
 )
 
 func running() {
@@ -58,7 +58,7 @@ func main() {
 	numServer = len(gnfIPs)
 
 	//Initiate redis Client
-	redisClient = ExampleNewClient()
+	redisClients = ExampleNewClient()
 	if len(os.Args) == 1 {
 		running()
 	} else if len(os.Args) == 3 {

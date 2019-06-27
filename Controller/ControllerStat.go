@@ -75,8 +75,12 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 
 	subscriber.SetSubscribe("stat")
 	// TODO: in the future can make this parrallel working
+	var round int64
+	round = 1
 	for {
 		// Wait from all the response from the server
+		seperator := "****************** round " + strconv.FormatInt(round, 10) + " ************************************"
+		Utility.AppendStatsToFile(fileName, seperator)
 		for i := 0; i < numServer; i++ {
 			subscriber.RecvBytes(0)
 			b, _ := subscriber.RecvBytes(0)
@@ -91,27 +95,39 @@ func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
 }
 
 func clearRedisDB() {
-	sizeCmd := redisClient.DBSize()
-	count, _ := sizeCmd.Result()
-	fmt.Println("Before cleaning up db's count = " + strconv.FormatInt(count, 10))
-	//Clean up the db
-	redisClient.FlushAllAsync()
-	sizeCmd = redisClient.DBSize()
-	count, _ = sizeCmd.Result()
-	fmt.Println("After cleaning up db's count = " + strconv.FormatInt(count, 10))
+	for _, redisClient := range redisClients {
+		fmt.Println("Clean up " + redisClient.Options().Addr)
+		sizeCmd := redisClient.DBSize()
+		count, _ := sizeCmd.Result()
+		fmt.Println("Before cleaning up db's count = " + strconv.FormatInt(count, 10))
+		//Clean up the db
+		redisClient.FlushAllAsync()
+		sizeCmd = redisClient.DBSize()
+		count, _ = sizeCmd.Result()
+		fmt.Println("After cleaning up db's count = " + strconv.FormatInt(count, 10))
+	}
 }
 
-func ExampleNewClient() *redis.Client {
-	ipList := Utility.ReadRedisIP()
-	ip_port := ipList[0]
-	l := strings.Fields(ip_port)
-	redis_ip := l[0]
-	redis_port := l[1]
+func ExampleNewClient() []*redis.Client {
+	var clients []*redis.Client
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     redis_ip + ":" + redis_port,
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	return client
+	ipList := Utility.ReadRedisIP()
+
+	for i := 0; i < len(ipList); i++ {
+		ip_port := ipList[i]
+
+		l := strings.Fields(ip_port)
+		redis_ip := l[0]
+		redis_port := l[1]
+
+		client := redis.NewClient(&redis.Options{
+			Addr:     redis_ip + ":" + redis_port,
+			Password: "", // no password set
+			DB:       0,  // use default DB
+		})
+
+		clients = append(clients, client)
+	}
+
+	return clients
 }
