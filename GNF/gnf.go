@@ -442,6 +442,7 @@ func GnfMain() error {
 		//bm := <-exeToCtl
 		fmt.Println("gnfStop=", gnfStop)
 		fmt.Println(bmStat.String())
+		//e := <-allToExe
 		close(isDone)
 		e := <-allToExe
 		fmt.Println("from allToExe", e.arg)

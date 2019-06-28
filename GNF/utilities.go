@@ -173,9 +173,15 @@ func (lat latency) getAvgLat() float64 {
 		return 0
 	}
 
-	idx := int(float64(len(lat)) * 0.5)
-	val := float64(lat[idx]) / float64(time.Microsecond)
-	return val
+	//idx := int(float64(len(lat)) * 0.5)
+	//val := float64(lat[idx]) / float64(time.Microsecond)
+
+	sum := int64(0)
+	for _, l := range lat {
+		sum += time.Duration(l).Nanoseconds()
+	}
+	avg := (float64(sum) / float64(time.Microsecond)) / float64(len(lat))
+	return avg
 }
 
 func (lat latency) get95pLat() float64 {

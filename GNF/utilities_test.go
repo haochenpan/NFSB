@@ -41,6 +41,7 @@ func Test_keyRangesToKeys(t *testing.T) {
 }
 
 func Test_randString(t *testing.T) {
+	var src = rand.NewSource(time.Now().UTC().UnixNano())
 	var ran = rand.New(src)
 	if len(randString(ran, 16)) != 16 {
 		t.Error("not a correct length")
