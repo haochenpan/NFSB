@@ -23,13 +23,13 @@ func TestGnfMain(t *testing.T) {
 	go exeSignThread(allToExe, isDone) // needToWait, exit when isDone is closed
 
 	if phase == "load" {
-		_, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
+		_, bmStat = benchmarkRoutine(wl, LoadPhase, allToExe)
 	} else if phase == "run" {
-		_, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
+		_, bmStat = benchmarkRoutine(wl, RunPhase, allToExe)
 	} else if phase == "loadrun" {
-		_, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
+		_, bmStat = benchmarkRoutine(wl, LoadPhase, allToExe)
 		fmt.Println(bmStat.String())
-		_, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
+		_, bmStat = benchmarkRoutine(wl, RunPhase, allToExe)
 	} else {
 		err := fmt.Sprintf("%q is not a valid argument", phase)
 		t.Error(err)

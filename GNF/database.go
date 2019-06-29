@@ -3,8 +3,7 @@ package gnf
 /*
 	Database client interface, implementations, and DB related functions
 
-	Discussion: for method DBWrite and DBRead, should they have pointer receivers?
-
+	only supports redis for now
 */
 
 import (
@@ -30,17 +29,17 @@ func (cli *RedisClient) DBWrite(key string, val string) error {
 }
 
 func (cli *RedisClient) DBRead(key string) (string, error) {
-	val, err := cli.Get(key).Result()
+	_, err := cli.Get(key).Result()
 	if err != nil {
 		return "", err
 	}
-	return val, nil
+	return "", nil
 }
 
 func getRemoteDBClients(wl *Workload, phase exePhase) []DBClient {
 
 	var num int
-	if phase == LoadSig {
+	if phase == LoadPhase {
 		num = wl.RemoteDBLoadThreadCount
 	} else {
 		num = wl.RemoteDBRunThreadCount

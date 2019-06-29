@@ -20,16 +20,6 @@ func mockSendController() {
 	fmt.Println("sleeping....")
 	time.Sleep(1 * time.Second)
 
-	//for i := 0; i < 5; i++ {
-	//	fmt.Println("sleeping....")
-	//	time.Sleep(1 * time.Second)
-	//	fmt.Println("sending....")
-	//
-	//
-	//	fmt.Println("sent!")
-	//
-	//}
-
 	_, _ = publisher.SendMessage([][]byte{[]byte("all"),
 		DataStruct.Encode(&DataStruct.UserData{Action: "interrupt"})}, 0)
 	_, _ = publisher.SendMessage([][]byte{[]byte("all"),
@@ -88,7 +78,7 @@ func mockRecvController() {
 /*
 	exit condition: when isDone is closed or upon exception
 	upon exit: does not close any channel
-	upon exception: may send exeCmd{EExit, "exeRecvThread exception"}
+	upon exception: may send exeCmd{ErrorExit, "exeRecvThread exception"}
 */
 func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port string) {
 
@@ -97,44 +87,40 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 	var err error
 
 	if cxt, err = zmq.NewContext(); err != nil {
-		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeRecvThread exception"}
 		fmt.Println("err1=", err)
 		return
 	}
 	if sub, err = cxt.NewSocket(zmq.SUB); err != nil {
-		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeRecvThread exception"}
 		fmt.Println("err2=", err)
 		return
 	}
 	defer sub.Close()
 
 	if err = sub.Connect("tcp://" + ip + ":" + port); err != nil {
-		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeRecvThread exception"}
 		fmt.Println("err3=", err)
 		return
 	}
 	if err = sub.SetSubscribe("all"); err != nil {
-		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeRecvThread exception"}
 		fmt.Println("err4=", err)
 		return
 	}
 
 	myIp, _ := getIp() // If migrate to different servers, need to pass in the address
 	if err = sub.SetSubscribe(myIp); err != nil {
-		allToExe <- exeCmd{EExit, "exeRecvThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeRecvThread exception"}
 		fmt.Println("err5=", err)
 		return
 	}
 
+	// a thread that listens to the controller
 	recvChan := make(chan []byte)
 	go func() {
 		for {
-			// could sub lead to memory leak?
 			if tuple, err := sub.RecvMessageBytes(0); err == nil {
-				//fmt.Println("err6=", err)
-				//fmt.Println("sleep for one sec")
-				//time.Sleep(1 * time.Second)
-				//continue
 				recvChan <- tuple[1]
 			} else {
 				fmt.Println("recvChan error,", err)
@@ -144,30 +130,24 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 
 	allToExe <- exeCmd{Ready, "exeRecvThread is ready"}
 	for {
-		select {
-		case <-isDone:
-			_, _ = fmt.Fprintln(os.Stdout, "exeRecvThread try to exit - 5")
-			allToExe <- exeCmd{NExit, "exeRecvThread"}
-			return
-			// gracefully exit
-		case tuple := <- recvChan:
 
-		//default:
-		//	var tuple [][] byte // three tuple: filter/flag, msg, msg_section
-		//	var err error
-		//	if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
-		//		//fmt.Println("err6=", err)
-		//		//fmt.Println("sleep for one sec")
-		//		time.Sleep(1 * time.Second)
-		//		continue
-		//	}
+		select {
+
+		case <-isDone:
+			//_, _ = fmt.Fprintln(os.Stdout, "exeRecvThread try to exit - 5")
+			allToExe <- exeCmd{NormalExit, "exeRecvThread"}
+			return
+
+		case tuple := <-recvChan:
 			data := DataStruct.Decode(tuple)
+
 			switch data.Action {
+
 			case "quit":
 				allToExe <- exeCmd{GnfStop, ""}
 
 			case "interrupt":
-				allToExe <- exeCmd{BmStop, ""}
+				allToExe <- exeCmd{BmkStop, ""}
 
 			case "load", "run":
 
@@ -200,7 +180,7 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 /*
 	exit condition: when isDone is closed or upon exception
 	upon exit: does not close any channel
-	upon exception: may send exeCmd{EExit, "exeSendThread exception"}
+	upon exception: may send exeCmd{ErrorExit, "exeSendThread exception"}
 */
 func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan BmStats, port string) {
 
@@ -208,37 +188,31 @@ func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan B
 	var pub *zmq.Socket
 	var err error
 
-	//fmt.Println("port,", port)
 	if cxt, err = zmq.NewContext(); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeSendThread exception"}
 		fmt.Println("err1=", err)
 		return
 	}
 
 	if pub, err = cxt.NewSocket(zmq.PUB); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeSendThread exception"}
 		fmt.Println("err2=", err)
 		return
 	}
 	defer pub.Close()
 
 	if err = pub.Bind("tcp://*:" + port); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
+		allToExe <- exeCmd{ErrorExit, "exeSendThread exception"}
 		fmt.Println("err2=", err)
 		return
 	}
-
-	//time.Sleep(1*time.Second)
-	//allToExe <- exeCmd{EExit, "exeRecvThread exception"}
-	//return
-	//fmt.Println("before for loop")
 
 	allToExe <- exeCmd{Ready, "exeSendThread is ready"}
 	for {
 		select {
 		case <-isDone:
-			_, _ = fmt.Fprintln(os.Stdout, "exeSendThread try to exit - 4")
-			allToExe <- exeCmd{NExit, "exeSendThread"}
+			//_, _ = fmt.Fprintln(os.Stdout, "exeSendThread try to exit - 4")
+			allToExe <- exeCmd{NormalExit, "exeSendThread"}
 			return
 		case stat := <-exeToCtl:
 			fmt.Println("looping...")
@@ -269,8 +243,8 @@ func exeSignThread(allToExe chan<- exeCmd, isDone <-chan bool) {
 		case <-isDone:
 			signal.Stop(sigToExe)
 			close(sigToExe)
-			_, _ = fmt.Fprintln(os.Stdout, "exeSignThread try to exit - 3")
-			allToExe <- exeCmd{NExit, "exeSignThread"}
+			//_, _ = fmt.Fprintln(os.Stdout, "exeSignThread try to exit - 3")
+			allToExe <- exeCmd{NormalExit, "exeSignThread"}
 			return
 
 		case <-sigToExe:

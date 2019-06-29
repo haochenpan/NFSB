@@ -22,17 +22,20 @@ type (
 	exePhase string
 )
 
+// from all thread to the executor (runs benchmarkRoutine and mainRoutine)
 type exeCmd struct {
 	sig exeSig
 	arg string
 }
 
+// from operation generator to client threads
 type genCmd struct {
-	Sig  genSig
-	Arg1 int
-	Arg2 string
+	Sig  genSig // read or write
+	Arg1 int    // if write: length of the value
+	Arg2 string // key to operate on
 }
 
+// from client threads to statistics thread
 type stats struct {
 	threadIndex int
 	succeed     bool
@@ -41,6 +44,7 @@ type stats struct {
 	end         time.Time
 }
 
+// from statistics thread to executor then to pub thread / print out
 type BmStats struct {
 	IP        string
 	Timestamp string // e.g. get from time.Now().String()
@@ -82,19 +86,17 @@ const (
 )
 
 const (
-	LoadSig exePhase = "load"
-	RunSig  exePhase = "run"
-
-	ReadSig  genSig = "read"
-	WriteSig genSig = "write"
-
-	NExit    exeSig = "exit"      // followed by a return
-	EExit    exeSig = "exception" // followed by a return
-	GnfStop  exeSig = "stop"      // never followed by a return
-	BmStop   exeSig = "bmStop"    // never followed by a return
-	CtrlLoad exeSig = "load"
-	CtrlRun  exeSig = "run"
-	Ready    exeSig = "ready" // two comm threads
+	LoadPhase  exePhase = "load"
+	RunPhase            = "run"
+	DoRead     genSig   = "read"
+	DoWrite             = "write"
+	NormalExit exeSig   = "exit"      // followed by a return
+	ErrorExit           = "exception" // followed by a return
+	GnfStop             = "stop"      // never followed by a return
+	BmkStop             = "bmStop"    // never followed by a return
+	CtrlLoad            = "load"
+	CtrlRun             = "run"
+	Ready               = "ready" // for two comm threads only
 )
 
 // generates a YCSB-like benchmark report
@@ -172,9 +174,6 @@ func (lat latency) getAvgLat() float64 {
 	if lat == nil || len(lat) == 0 {
 		return 0
 	}
-
-	//idx := int(float64(len(lat)) * 0.5)
-	//val := float64(lat[idx]) / float64(time.Microsecond)
 
 	sum := int64(0)
 	for _, l := range lat {
@@ -261,7 +260,8 @@ func isValidKeyRange(keyRanges keyRanges) bool {
 func keyRangesToKeys(keyRanges keyRanges) []int64 {
 
 	var randKeyIdx, krsKeyIdx int
-	var src = rand.NewSource(714) // only 714 here
+	// 714 is a valid seed that could be used to produce 18000000+ non-repeated keys
+	var src = rand.NewSource(714)
 	var ran = rand.New(src)
 	keyCnt := keyRanges.keyCount()
 	krs := make([]int64, keyCnt)
@@ -276,14 +276,11 @@ func keyRangesToKeys(keyRanges keyRanges) []int64 {
 			} else if randKeyIdx < keyRange.EndIndex {
 				krs[krsKeyIdx] = ran.Int63()
 				krsKeyIdx++
-				//fmt.Println(randKeyIdx, key)
 				randKeyIdx++
 				i++
 			}
 		}
 	}
-	//fmt.Println(krs)
-
 	return krs
 }
 
@@ -291,9 +288,7 @@ func keyRangesToKeys(keyRanges keyRanges) []int64 {
 func randString(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		//b[i] = Letters[r.Int63()%int64(len(Letters))]
 		idx := r.Int63() % int64(len(Letters))
-		//fmt.Println(idx)
 		b[i] = Letters[idx]
 	}
 	return string(b)
