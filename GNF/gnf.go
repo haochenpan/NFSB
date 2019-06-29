@@ -15,48 +15,33 @@ import (
 	"time"
 )
 
-//func mockCliThread(genToCli <-chan genCmd) {
-//	idx := 0
-//
-//	requests := make(map[string]int) // key, idx
-//	reqs := make([]int, 0)
-//
-//	for cmd := range genToCli {
-//		if v, ok := requests[cmd.Arg2]; ok {
-//			reqs[v] ++
-//		} else {
-//			requests[cmd.Arg2] = idx
-//			reqs = append(reqs, 1)
-//			idx++
-//		}
-//	}
-//	sum := 0
-//	for i := range reqs {
-//		sum += reqs[i]
-//	}
-//	fmt.Println(sum, len(reqs))
-//	sort.Sort(sort.Reverse(sort.IntSlice(reqs)))
-//	fmt.Println(reqs)
-//}
-
 /*
-	exit condition: when genToCli is closed or upon exception in the load phase
+	client thread: the thread that performs DB operations
+	there could be multiple client threads during benchmarking, depends on the workload parameter
+
+	exit condition: when genToCli is closed by generator or encountered an exception in the load phase
 	upon exit: does not close any channel
 	upon exception: may send exeCmd{EExit, "cliThread exception"}
+
+	genToCli: a channel from operation generator to client threads
+	cliToSta: a channel from client threads to the statistics thread
+	allToExe: a channel from the sender thread to the executor thread
+
 */
-func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- exeCmd,
-	threadIndex int, db DBClient, phase exePhase) {
+func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats,
+	allToExe chan<- exeCmd, threadIndex int, db DBClient, phase exePhase) {
 
 	var cliSrc = rand.NewSource(time.Now().UTC().UnixNano())
-
 	var cliRan = rand.New(cliSrc)
+	var err error
+	var time1, time2 time.Time
 
+	// for every R/W command received from the operation generator thread
 	for cmd := range genToCli {
 		op, cnt, key := cmd.Sig, cmd.Arg1, cmd.Arg2
-		var err error
 
-		var time1, time2 time.Time
-
+		// perform R/W operation
+		// and measure the start and the end time of the operation
 		switch op {
 		case ReadSig:
 			time1 = time.Now()
@@ -67,61 +52,77 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats, allToExe chan<- ex
 			time1 = time.Now()
 			err = db.DBWrite(key, str)
 		}
-
 		time2 = time.Now()
+
+		// if there's an error in the load phase
 		if err != nil && phase == LoadSig {
-			_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return early, idx=", threadIndex)
+			//_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return early, idx=", threadIndex)
 			cliToSta <- stats{threadIndex, false, cmd, time1, time2}
 			allToExe <- exeCmd{EExit, "cliThread exception"}
 			return
+
+			// if there's an error in the run phase
 		} else if err != nil {
 			cliToSta <- stats{threadIndex, false, cmd, time1, time2}
+
+			// if operation succeed
 		} else {
 			cliToSta <- stats{threadIndex, true, cmd, time1, time2}
 		}
 	}
-	_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return normally, idx=", threadIndex)
+	//_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return normally, idx=", threadIndex)
 	allToExe <- exeCmd{NExit, "cliThread"}
 
 }
 
 /*
-	exit condition: when cliToSta is closed
+	statistics thread: converges stats objects from client threads and produces benchmark stats
+	there's only one statistics thread per benchmark phase (load/run)
+
+	exit condition: when cliToSta is closed by benchmarkRoutine()
 	upon exit: close staToExe
 	upon exception: no known possible exception, no exception signal
+
+	cliToSta: a channel from client threads to the statistics thread
+	allToExe: a channel from the sender thread to the executor thread
+	staToExe: a channel from the statistics thread to the executor thread
 
 */
 func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- BmStats) {
 
+	// successful read, successful write, failed read, failed write
 	var sRead, sWrite, fRead, fWrite int
+	// latencies of those operations
 	var sReadLat, sWriteLat = make(latency, 0), make(latency, 0)
 	var fReadLat, fWriteLat = make(latency, 0), make(latency, 0)
 
 	bmStart, bmEnd := time.Now(), time.Now()
 
+	// for every statistics object received from client threads
 	for stat := range cliToSta {
 
 		if sRead == 0 && sWrite == 0 && fRead == 0 && fWrite == 0 {
 			bmStart = stat.start
 		}
-
 		bmEnd = stat.end
-		dur := stat.end.Sub(stat.start)
+		duration := stat.end.Sub(stat.start)
+
 		if stat.succeed && stat.genCmd.Sig == ReadSig {
 			sRead++
-			sReadLat = append(sReadLat, dur)
+			sReadLat = append(sReadLat, duration)
 		} else if stat.succeed && stat.genCmd.Sig == WriteSig {
 			sWrite++
-			sWriteLat = append(sWriteLat, dur)
+			sWriteLat = append(sWriteLat, duration)
 		} else if ! stat.succeed && stat.genCmd.Sig == ReadSig {
 			fRead++
-			fReadLat = append(fReadLat, dur)
+			fReadLat = append(fReadLat, duration)
 		} else {
 			fWrite++
-			fWriteLat = append(fWriteLat, dur)
+			fWriteLat = append(fWriteLat, duration)
 		}
 	}
 
+	// sort 4 arrays to get percentile information
 	sort.Sort(sReadLat)
 	sort.Sort(sWriteLat)
 	sort.Sort(fReadLat)
@@ -130,146 +131,122 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- Bm
 	runTime := bmEnd.Sub(bmStart).Seconds()
 	myIp, _ := getIp()
 	bmStats := BmStats{
-		IP:           myIp,
-		Timestamp:    time.Now().String(),
-		Runtime:      runTime,
-		Throughput:   float64(sRead+sWrite+fRead+fWrite) / runTime,
-		SRead:        sRead,
-		SReadAvgLat:  sReadLat.getAvgLat(),
-		SRead95pLat:  sReadLat.get95pLat(),
+		IP:         myIp,
+		Timestamp:  time.Now().String(),
+		Runtime:    runTime,
+		Throughput: float64(sRead+sWrite+fRead+fWrite) / runTime,
+
+		SRead:       sRead,
+		SReadAvgLat: sReadLat.getAvgLat(),
+		SRead95pLat: sReadLat.get95pLat(),
+
 		SWrite:       sWrite,
 		SWriteAvgLat: sWriteLat.getAvgLat(),
 		SWrite95pLat: sWriteLat.get95pLat(),
-		FRead:        fRead,
-		FReadAvgLat:  fReadLat.getAvgLat(),
-		FRead95pLat:  fReadLat.get95pLat(),
+
+		FRead:       fRead,
+		FReadAvgLat: fReadLat.getAvgLat(),
+		FRead95pLat: fReadLat.get95pLat(),
+
 		FWrite:       fWrite,
 		FWriteAvgLat: fWriteLat.getAvgLat(),
 		FWrite95pLat: fWriteLat.get95pLat(),
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, "staThread tries to return normally - 2")
-	allToExe <- exeCmd{NExit, "staThread"}
+	//_, _ = fmt.Fprintln(os.Stdout, "staThread tries to return normally - 2")
+	//allToExe <- exeCmd{NExit, "staThread"}
 	staToExe <- bmStats
 	close(staToExe)
 
 }
 
 /*
+	executor's concurrent logic during benchmarking
+
 	exit condition: receives GnfStop or BmStop or upon exception
-	if the last executed command is BmStop: return returnWait
-	if the last executed command is GnfStop: close isDone, return 0
-	Upon exception: close isDone, return 0 for now
+	upon exit: return a bool indicates whether the outer method should exit the loop
+				(e.g. have received a GnfStop signal or encountered some exception)
+	Upon exception: return (true, BmStats)
 
-	if only processes BmStop, if there's a GnfStop signal comes in,
-	it will notify executorRoutine to process that signal.
+	need to make sure pub sub threads will not produce EEXIT signal
+	during the execution of this method
 
-	we assume two pub sub threads and os signal thread are fault free when this method
-	start to execute. However, when there's an error in pub thread, bm stats just get dropped
-
-	// bool: has GnfStop been called?
-	// BmStats:
 */
 func benchmarkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd) (bool, BmStats) {
 
-	exeToGen := make(chan bool)        // close after for loop
-	genToCli := make(chan genCmd, 0)   // close by gen
-	cliToSta := make(chan stats, 1000) // close after for loop
-	staToExe := make(chan BmStats)     // close by sta
+	exeToGen := make(chan bool)         // close by benchmarkRoutine
+	genToCli := make(chan genCmd, 1000) // close by gen, 1000: as a buffer to smooth message passing
+	cliToSta := make(chan stats, 1000)  // close by benchmarkRoutine
+	staToExe := make(chan BmStats)      // close by sta, 1000: as a buffer to smooth message passing
 
+	// starts the generator thread
 	gen := getOpGenerator(wl)
-	go gen.GenThread(allToExe, exeToGen, genToCli, wl, phase) // need to wait
+	go gen.GenThread(allToExe, exeToGen, genToCli, wl, phase)
 
+	// starts client threads
 	clients := getRemoteDBClients(wl, phase)
 	for i, cli := range clients {
-		//for range clients {
 		go cliThread(genToCli, cliToSta, allToExe, i, cli, phase)
-		//go mockCliThread(genToCli)
 	}
 
+	// stats statistics thread
 	go staThread(cliToSta, allToExe, staToExe)
 
-	var bmStop, shouldGnfStop bool // has the bm stopped
-	needToWait := len(clients) + 1 // waits generator but does not wait stat thread here
-
+	// has BmStop signal received;
+	// should GNF stop b/c an exception or GnfStop signal
+	var bmStop, shouldGnfStop bool
 	var doBmExit = func() {
 		if !bmStop {
 			close(exeToGen)
 			bmStop = true
 		} else {
-			_, _ = fmt.Fprintln(os.Stdout, "bm already exiting!")
+			//_, _ = fmt.Fprintln(os.Stdout, "bm already exiting!")
 		}
 	}
 
-	//var doGnfExit = func() {
-	//	doBmExit()
-	//	if !shouldGnfStop {
-	//		needToWait, returnWait = needToWait+returnWait, 0
-	//		close(isDone)
-	//		shouldGnfStop = true
-	//	} else {
-	//		_, _ = fmt.Fprintln(os.Stdout, "gnf already exiting!")
-	//
-	//	}
-	//}
-
+	needToWait := len(clients) + 1 // only needs to wait the generator and client threads here
 	for needToWait > 0 {
 
-		select {
+		cmd := <-allToExe
 
-		case cmd := <-allToExe:
+		switch cmd.sig {
 
-			switch cmd.sig {
+		case NExit:
+			fmt.Println("received exit=", cmd.arg)
+			needToWait--
 
-			case NExit:
-				fmt.Println("received exit=", cmd.arg)
-				needToWait--
+		case EExit:
+			fmt.Println("received exception exit=", cmd.arg)
+			needToWait--
+			doBmExit()
+			shouldGnfStop = true
 
-			case EExit:
-				fmt.Println("received exception exit=", cmd.arg)
-				needToWait--
-				doBmExit()
-				shouldGnfStop = true
-				//doGnfExit()
+		case GnfStop:
+			fmt.Println("received interrupt sig=", cmd.arg)
+			doBmExit()
+			shouldGnfStop = true
 
-			case GnfStop:
-				fmt.Println("received interrupt sig=", cmd.arg)
-				doBmExit()
-				shouldGnfStop = true
-				//doGnfExit()
+		case CtrlLoad, CtrlRun:
+			fmt.Println("already doing so", cmd.arg)
 
-			case CtrlLoad, CtrlRun:
-				fmt.Println("already doing so", cmd.arg)
+		case BmStop:
+			fmt.Println("bmstop received, ", cmd.arg)
+			doBmExit()
 
-			case BmStop:
-				fmt.Println("bmstop received, ", cmd.arg)
-				doBmExit()
-			}
 		}
 	}
 
 	doBmExit()
 
-	// at this point, only sta thread and 3 outside threads are running
-	close(cliToSta) // notify sta thread the benchmark is done
-	//fmt.Println("before wait stat")
-	e := <-allToExe // wait stat's signal
-	fmt.Println("from allToExe", e.arg)
+	// at this point, only sta thread and threads declared outside are running
+	// notify sta thread the benchmark is done
+	close(cliToSta)
+	//e := <-allToExe // wait stat's signal
+	//fmt.Println("from allToExe", e.arg)
 
-	//fmt.Println("after wait stat")
-
-	//fmt.Println("after cli to sta is closed, wait stat,", )
 	bmStat := <-staToExe
 
-	//fmt.Println("after wait bmStat")
-
-	//fmt.Println(bmStat.String())
-	//fmt.Println("before !bmStop")
-	//fmt.Println("!bmStop")
-	//exeToCtl <- bmStat // if gnf-cli, receive in GnfMain; if gnf, receive in executorRoutine
-	//fmt.Println("returnWait=", returnWait)
 	return shouldGnfStop, bmStat
-
 }
 
 /*
@@ -278,85 +255,75 @@ func benchmarkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd) (bool,
 	this function shall exit gracefully and release all resources,
 	without incurring an deadlock
 */
-func executorRoutine(controllerIp string, subPort, pubPort int) {
+func mainRoutine(controllerIp string, subPort, pubPort int) {
 
+	// allToExe: a channel from the sender thread to the executor thread
 	allToExe := make(chan exeCmd)
 	isDone := make(chan bool)
+	// exeToCtl: a channel that sends benchmark statistics to the pub channel
 	exeToCtl := make(chan BmStats)
-
-	//go func() {
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{CtrlLoad, "Config/workload_template"}
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{BmStop, ""}
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{GnfStop, ""}
-	//}()
 
 	go exeSignThread(allToExe, isDone)                                      // needToWait, exit when isDone is closed
 	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // needToWait, exit when isDone is closed
 	go exeSendThread(allToExe, isDone, exeToCtl, strconv.Itoa(pubPort))     // needToWait, exit when isDone is closed
 
+	// wait for exeRecvThread and exeSendThread,
+	// make sure they won't produce EEXIT signal from here on
 	for i := 0; i < 2; i++ {
 		sig := <-allToExe
 		if sig.sig != Ready {
-			fmt.Println(sig.arg)
+			fmt.Println("communication threads are not ready", sig.sig, sig.arg)
 			return
 		}
-		fmt.Println(sig.arg)
 	}
+
 	var wl *Workload
 	wl = InitWorkload()
 
-	var hasGnfStopCalled, alreadyExit bool
-	var bmStat BmStats
-	var needToWait = 3
+	var doingExit bool
 	var doExit = func() {
-		if !alreadyExit {
+		if !doingExit {
 			close(isDone)
-			alreadyExit = true
+			doingExit = true
 		} else {
-			fmt.Println("already exiting!")
+			//fmt.Println("already exiting!")
 		}
 	}
+
+	var needToWait = 3 // 3 threads above
 	for needToWait > 0 {
-		select {
-		case cmd := <-allToExe:
-			switch cmd.sig {
-			case NExit:
-				fmt.Println("exit received, ", cmd.arg)
-				needToWait--
+		cmd := <-allToExe
+		switch cmd.sig {
+		case NExit:
+			fmt.Println("exit received, ", cmd.arg)
+			needToWait--
 
-			case EExit:
-				fmt.Println("exception received, ", cmd.arg)
-				needToWait--
-				doExit()
-				// ch close ?
+		case EExit:
+			fmt.Println("exception received, ", cmd.arg)
+			needToWait--
+			doExit()
+			// ch close ?
 
-			case GnfStop:
-				fmt.Println("interrupt received, ", cmd.arg)
-				doExit()
+		case GnfStop:
+			fmt.Println("interrupt received, ", cmd.arg)
+			doExit()
 
-			case BmStop:
-				fmt.Println("bm is not going, signal ignored")
+		case BmStop:
+			fmt.Println("bm is not going, signal ignored")
 
-			case CtrlLoad, CtrlRun:
-				if ret := wl.UpdateWorkloadByFile(cmd.arg); ret < 0 {
-					fmt.Println("wl file error")
-					continue
-				}
-				hasGnfStopCalled, bmStat = benchmarkRoutine(wl, exePhase(cmd.sig), allToExe)
-				exeToCtl <- bmStat
-				if hasGnfStopCalled {
-					doExit()
-				}
+		case CtrlLoad, CtrlRun:
+			if ret := wl.UpdateWorkloadByFile(cmd.arg); ret < 0 {
+				fmt.Println("wl file error")
+				continue
 			}
-			//default:
-			//	time.Sleep(1 * time.Second)
+			shouldExit, bmStat := benchmarkRoutine(wl, exePhase(cmd.sig), allToExe)
+			exeToCtl <- bmStat
+			if shouldExit {
+				doExit()
+			}
 		}
 	}
-
-	fmt.Println("executorRoutine exits")
+	//fmt.Println("mainRoutine exits")
 }
 
 /*
@@ -376,7 +343,7 @@ func GnfMain() error {
 	stat := gnf.Int("stat", 6668, "stats pub port")
 
 	cli := flag.NewFlagSet("gnf-cli", flag.ExitOnError)
-	phase := cli.String("phase", "load", " \"load\" or \"run\" ")
+	phase := cli.String("phase", "load", " \"load\" or \"run\" or \"loadrun\" ")
 	fPath := cli.String("wl", "./Config/workload_template", "some_workload_file_path")
 
 	if len(os.Args) < 2 {
@@ -416,42 +383,30 @@ func GnfMain() error {
 			return errors.New(err)
 		}
 
-		var gnfStop bool
+		var bmStat BmStats
 		allToExe := make(chan exeCmd)
 		isDone := make(chan bool)
-		//exeToCtl := make(chan BmStats, 0)
-
-		var bmStat BmStats
 
 		go exeSignThread(allToExe, isDone) // needToWait, exit when isDone is closed
 
 		if *phase == "load" {
-			gnfStop, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
+			_, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
 		} else if *phase == "run" {
-			gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
+			_, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
 		} else if *phase == "loadrun" {
-			gnfStop, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
+			_, bmStat = benchmarkRoutine(wl, LoadSig, allToExe)
 			fmt.Println(bmStat.String())
-			gnfStop, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
+			_, bmStat = benchmarkRoutine(wl, RunSig, allToExe)
 		} else {
 			err := fmt.Sprintf("%q is not a valid argument", *phase)
 			return errors.New(err)
 		}
 
-		//fmt.Println("ret=", ret)
-		//bm := <-exeToCtl
-		fmt.Println("gnfStop=", gnfStop)
 		fmt.Println(bmStat.String())
-		//e := <-allToExe
-		close(isDone)
-		e := <-allToExe
-		fmt.Println("from allToExe", e.arg)
-		fmt.Println("main exits")
-		//if ret != 0 {
-
-		//}
-
-		//close()
+		close(isDone) // signal os signal thread
+		<-allToExe    // wait for os signal thread to exit
+		//fmt.Println("from allToExe", e.arg)
+		//fmt.Println("main exits")
 
 	} else {
 
@@ -466,12 +421,7 @@ func GnfMain() error {
 		fmt.Println("controller ip=", *ip)
 		fmt.Println("controller nf port=", *port)
 		fmt.Println("controller stat port=", *stat)
-		//fmt.Println()
-		//fmt.Println()
-		//go mockSendController()
-		//go mockRecvController()
-
-		executorRoutine(*ip, *port, *stat)
+		mainRoutine(*ip, *port, *stat)
 	}
 
 	return nil
