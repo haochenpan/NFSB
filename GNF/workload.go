@@ -29,7 +29,7 @@ type Workload struct {
 	RemoteDBOperationCount        int
 	RemoteDBOperationRange        keyRanges
 	RemoteDBOperationDistribution string
-	RemoteDBGlobalMaximumKeyIndex int
+	RemoteDBGlobalMaximumKeyIndex int // not in use for now
 	RemoteDBReadRatio             float64
 	RemoteDBWriteRatio            float64
 }
@@ -172,7 +172,7 @@ func (wl *Workload) UpdateWorkloadByLine(line string) (int, error) {
 
 /*
 	return -1 if there's an exception (no workload file found) or
-	updateCount, could >= 0, if the workload object is updated
+	a updateCount, could >= 0, if the workload object is updated
 */
 func (wl *Workload) UpdateWorkloadByFile(path string) int {
 
