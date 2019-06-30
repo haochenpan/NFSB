@@ -1,16 +1,16 @@
 remoteDB                  = redis
-remoteDBHost              = 10.0.0.7
+remoteDBHost              = 10.0.0.5
 remoteDBPort              = 6379
 remoteDBPassword          =
 
 remoteDBLoadThreadCount   = 5
 remoteDBRunThreadCount    = 5
 
-remoteDBInsertKeyRange         = 0-600000
+remoteDBInsertKeyRange         = 40000-60000
 remoteDBInsertValueSizeInByte  = 64
 
-remoteDBOperationCount         = 18000000
-remoteDBOperationRange         = 0-600000
+remoteDBOperationCount         = 90000
+remoteDBOperationRange         = 0-60000
 remoteDBOperationDistribution  = uniform
 remoteDBReadRatio              = 0.9
 remoteDBWriteRatio             = 0.1
