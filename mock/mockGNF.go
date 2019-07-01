@@ -1,6 +1,9 @@
 package main
 
-import "net"
+import (
+	"log"
+	"net"
+)
 
 func main() {
 	var conn net.Conn
@@ -8,6 +11,7 @@ func main() {
 	controllerIP := "10.150.0.6"
 	port := "6668"
 	if conn, err = net.Dial("tcp", controllerIP+":"+port); err != nil {
+		log.Fatal(err)
 		return
 	}
 	for i := 0; i < 5; i++ {
