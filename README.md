@@ -8,9 +8,23 @@
 go get github.com/pebbe/zmq4
 go get github.com/go-redis/redis
 ```
+#### Start the UserInput
+```bash
+# start  UserInput, parameters see the output
+cd UserInput
+go run *.go
+```
 
 #### Start the controller
+```bash
+# start Controller with UserInput, parameters see the output
+cd Controller
+go run *.go
 
+# start Controller with Benchmark mode, parameters see the output
+cd Controller
+go run *.go benchmark [# of rounds]
+```
 
 
 #### Start Generic Network Function (GNF)
