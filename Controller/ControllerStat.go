@@ -101,6 +101,7 @@ func initControllerTCPStats(wg *sync.WaitGroup) {
 	defer l.Close()
 	for {
 		// Listen for an incoming connection.
+		fmt.Println("Listening for incoming request")
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting: ", err.Error())
@@ -109,6 +110,7 @@ func initControllerTCPStats(wg *sync.WaitGroup) {
 
 		go handleStats(conn)
 	}
+	fmt.Println("Bye")
 }
 
 func handleStats(conn net.Conn) {
