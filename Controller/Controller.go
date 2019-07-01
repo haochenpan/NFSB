@@ -19,7 +19,7 @@ var (
 	redisClients     []*redis.Client
 	outputFilePrefix string
 	CONN_TYPE        = "tcp"
-	CONN_HOST        = "localhost"
+	CONN_HOST        = Utility.ReadControllerIp()
 )
 
 func running() {
