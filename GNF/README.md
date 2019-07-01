@@ -12,70 +12,6 @@ Please see our paper for HotNets 2019
 
 #### Interfaces
 
-<<<<<<< HEAD
-##### Database Client
-
-<detail>
-
-<summary>
-
-`DBClient` in `database.go`.
-
-When adding a new type of storage node (i.e. other than Redis), need to implement this interface with two methods.
-
-</summary>
-
-```go
-type DBClient interface {
-	DBWrite(key, val string) error
-	DBRead(key string) (string, error)
-}
-```
-
-Also, add an entry in function `getRemoteDBClients()` in `database.go`, and an entry in `isValidRemoteDB()` in `utilities.go`
-to make a string that represents this type of DB can be picked up from a workload file.
-
-</detail>
-
-
-##### Operation Generator
-
-<detail>
-
-<summary>
-
-`OpGenerator` in `generator.go`. When implementing a new kind of request distribution, need to implement this interface.
-
-</summary>
-
-```go
-type OpGenerator interface {
-	GenThread(allToExe chan<- exeCmd, exeToGen <-chan bool, genToCli chan<- genCmd, wl *Workload, phase exePhase)
-}
-```
-
-Also, add an entry in function `getOpGenerator()` in `generator.go`, and en entry in `isValidDistribution()` in `utilities.go`
-
-</detail>
-
-
-
-
-#### Threads / Goroutines
-
-Besides `GenThread()` above in Operation Generator section, there are a few more goroutines:
-
-<detail>
-
-<summary>
-
-`exeRecvThread()` in `control.go`: receives controller signals (`UserData` struct in outer package) and interpret into executor commands;
-
-</summary>
-||||||| merged common ancestors
-### For Developers:
-#### Controller Signals and Workloads (what GNF responses to)
-=======
 ##### Database Client
 
 <details>
@@ -121,7 +57,6 @@ Besides `GenThread()` above in Operation Generator section, there are a few more
 <details>
 
 <summary> exeRecvThread() in control.go: receives controller signals (`UserData` struct in outer package) and interpret into executor commands; </summary>
->>>>>>> a4956e2e504615da03156aff42c82ad37621a37e
 
 ```go
 type UserData struct {
@@ -132,21 +67,6 @@ type UserData struct {
 }
 ```
 
-<<<<<<< HEAD
-</detail>
-
-
-<detail>
-
-<summary>
-
-`exeSendThread()` in `control.go`: sends benchmark statistics from executor to the controller;
-
-</summary>
-
-||||||| merged common ancestors
-In utilities.go:
-=======
 </details>
 
 
@@ -154,7 +74,6 @@ In utilities.go:
 
 <summary> exeSendThread() in control.go: sends benchmark statistics from executor to the controller; </summary>
 
->>>>>>> a4956e2e504615da03156aff42c82ad37621a37e
 ```go
 package gnf
 
@@ -199,29 +118,6 @@ func DecodeBmStat(dataBytes []byte) BmStats {
 
 ```
 
-<<<<<<< HEAD
-</detail>
-
-
-`exeSignThread()` in `control.go`: receives OS signals and interpret into executor commands;
-
-`cliThread()` in `gnf.go`: performs DB operations according to `GenThread()` commands;
-
-`staThread()` in `gnf.go`: converges DB Client Threads' per-request statistics to one benchmark statistics.
-
-#### Concurrent Logic
-
-`GnfMain()` in `gnf.go`: interpret command line arguments and spawns GNF or GNF-Cli
-
-`mainRoutine()` in `gnf.go`: GNF executor's main routine, incl. responses to executor commands (e.g. start benchmarking)
-
-`benchmarkRoutine()` in `gnf.go`: GNF executor's routine while benchmarking. 
-Compared to the main routine, responses to commands and exception handling are different.
-
-### For Developers:
-
-||||||| merged common ancestors
-=======
 </details>
 
 
@@ -243,7 +139,6 @@ Compared to the main routine, responses to commands and exception handling are d
 
 ### For Developers:
 
->>>>>>> a4956e2e504615da03156aff42c82ad37621a37e
 #### Add a Workload Parameter
 
 - choose a proper section (e.g. remoteDB), a proper parameter name and the default value in `workload_template`
@@ -254,28 +149,11 @@ Compared to the main routine, responses to commands and exception handling are d
 - Use it wherever you have a *Workload
 - Add some unit tests if you introduce new methods
 
-<<<<<<< HEAD
-||||||| merged common ancestors
-#### Add a Operation Generator
-
-
-#### Support a new DB
-=======
 
 ### Future Work
 
 Implements more operation generator according to different distributions; 
->>>>>>> a4956e2e504615da03156aff42c82ad37621a37e
 
 Add more DB backend support;
 
-<<<<<<< HEAD
-Implements more operation generator according to different distributions; 
-
-Add more DB backend support.
-||||||| merged common ancestors
-Throughput optimization
-``
-=======
 Add more unit tests.
->>>>>>> a4956e2e504615da03156aff42c82ad37621a37e
