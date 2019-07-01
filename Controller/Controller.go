@@ -60,7 +60,11 @@ func main() {
 
 	//Initiate redis Client
 	redisClients = ExampleNewClient()
-	if len(os.Args) == 1 {
+	if len(os.Args) == 2 {
+		// Load user's file data
+		fileName = os.Args[1]
+		// Create the File under the Main
+		Utility.CreateFile(fileName)
 		running()
 	} else if len(os.Args) == 4 {
 		if os.Args[1] != "benchmark" {
