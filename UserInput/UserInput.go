@@ -164,8 +164,6 @@ func sendDataToController(userChan chan DataStruct.UserData, wg *sync.WaitGroup)
 		//Utility.PrintUserData(data)
 		b := DataStruct.Encode(&data)
 		client.SendMessage(b)
-		returnByte, _ := client.RecvBytes(0)
-		fmt.Println(string(returnByte))
 	}
 }
 

@@ -24,11 +24,9 @@ func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 		select {
 		case data := <-ch:
 			// Get the data from the threads that listening for UserInput
-			prepareSendingToGNFsTest(data, publisher)
+			prepareSendingToGNFs(data, publisher)
 		}
 	}
-
-	//Need to filter out the specific IP and then send them to All
 }
 
 // Note this function will also auto generate user Request to send to gnf
@@ -74,7 +72,6 @@ func prepareSendingToGNFs(data DataStruct.UserData, publisher *zmq.Socket) {
 	if len(data.GnfIPS) == len(gnfIPs) {
 		broadcastToGNF(data, publisher)
 	} else {
-		// Send to Specific gnfIPS
 		ipList := data.GnfIPS
 		for _, gnfIP := range ipList {
 			sendDataToGNF(gnfIP, data, publisher)
@@ -105,6 +102,7 @@ func sendDataToGNF(address string, data DataStruct.UserData, publisher *zmq.Sock
 		0)
 }
 
+// Broadcast to all the GNF
 func broadcastToGNF(data DataStruct.UserData, publisher *zmq.Socket) {
 	publisher.SendMessage(
 		[][]byte{
