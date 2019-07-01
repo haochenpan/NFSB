@@ -22,7 +22,7 @@ cd Controller
 go run *.go
 
 # start Controller with Benchmark mode, parameters see the output
-cd into Controller directory
+cd Controller
 go run *.go benchmark [# of rounds]
 ```
 
