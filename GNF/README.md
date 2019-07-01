@@ -14,15 +14,9 @@ Please see our paper for HotNets 2019
 
 ##### Database Client
 
-<detail>
+<details>
 
-<summary>
-
-`DBClient` in `database.go`.
-
-When adding a new type of storage node (i.e. other than Redis), need to implement this interface with two methods.
-
-</summary>
+<summary> DBClient in database.go. When adding a new type of storage node (i.e. other than Redis), need to implement this interface with two methods. </summary>
 
 ```go
 type DBClient interface {
@@ -34,18 +28,14 @@ type DBClient interface {
 Also, add an entry in function `getRemoteDBClients()` in `database.go`, and an entry in `isValidRemoteDB()` in `utilities.go`
 to make a string that represents this type of DB can be picked up from a workload file.
 
-</detail>
+</details>
 
 
 ##### Operation Generator
 
-<detail>
+<details>
 
-<summary>
-
-`OpGenerator` in `generator.go`. When implementing a new kind of request distribution, need to implement this interface.
-
-</summary>
+<summary> OpGenerator in generator.go. When implementing a new kind of request distribution, need to implement this interface. </summary>
 
 ```go
 type OpGenerator interface {
@@ -55,7 +45,7 @@ type OpGenerator interface {
 
 Also, add an entry in function `getOpGenerator()` in `generator.go`, and en entry in `isValidDistribution()` in `utilities.go`
 
-</detail>
+</details>
 
 
 
@@ -64,13 +54,9 @@ Also, add an entry in function `getOpGenerator()` in `generator.go`, and en entr
 
 Besides `GenThread()` above in Operation Generator section, there are a few more goroutines:
 
-<detail>
+<details>
 
-<summary>
-
-`exeRecvThread()` in `control.go`: receives controller signals (`UserData` struct in outer package) and interpret into executor commands;
-
-</summary>
+<summary> exeRecvThread() in control.go: receives controller signals (`UserData` struct in outer package) and interpret into executor commands; </summary>
 
 ```go
 type UserData struct {
@@ -81,16 +67,12 @@ type UserData struct {
 }
 ```
 
-</detail>
+</details>
 
 
-<detail>
+<details>
 
-<summary>
-
-`exeSendThread()` in `control.go`: sends benchmark statistics from executor to the controller;
-
-</summary>
+<summary> exeSendThread() in control.go: sends benchmark statistics from executor to the controller; </summary>
 
 ```go
 package gnf
@@ -136,7 +118,7 @@ func DecodeBmStat(dataBytes []byte) BmStats {
 
 ```
 
-</detail>
+</details>
 
 
 `exeSignThread()` in `control.go`: receives OS signals and interpret into executor commands;
@@ -153,6 +135,7 @@ func DecodeBmStat(dataBytes []byte) BmStats {
 
 `benchmarkRoutine()` in `gnf.go`: GNF executor's routine while benchmarking. 
 Compared to the main routine, responses to commands and exception handling are different.
+
 
 ### For Developers:
 
