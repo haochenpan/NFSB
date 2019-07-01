@@ -130,7 +130,7 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- Bm
 		} else if stat.succeed && stat.genCmd.Sig == DoWrite {
 			sWrite++
 			sWriteLat = append(sWriteLat, duration)
-		} else if ! stat.succeed && stat.genCmd.Sig == DoRead {
+		} else if !stat.succeed && stat.genCmd.Sig == DoRead {
 			fRead++
 			fReadLat = append(fReadLat, duration)
 		} else {
@@ -430,7 +430,7 @@ func GnfMain() error {
 		//fmt.Println("from allToExe", e.arg)
 		//fmt.Println("main exits")
 
-	// gnf with a controller
+		// gnf with a controller
 	} else {
 
 		if myIp, err := getIp(); err != nil {

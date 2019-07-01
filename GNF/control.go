@@ -19,11 +19,12 @@ package gnf
 import (
 	"NFSB/DataStruct"
 	"fmt"
-	zmq "github.com/pebbe/zmq4"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 func mockSendController() {

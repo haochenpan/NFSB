@@ -50,7 +50,9 @@ func userWorker(ch chan DataStruct.UserData) {
 				userData = DataStruct.Decode(b)
 				// Send the data you get from User to the thread that prepares to send to GNFs
 				ch <- userData
+				worker.SendBytes([]byte("done"), 0)
 			}
 		}
 	}
+
 }
