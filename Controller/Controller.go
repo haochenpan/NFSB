@@ -7,20 +7,22 @@ import (
 )
 
 var (
-	gnfIPs  []string
+	// array to store all GNF IP
+	gnfIPs []string
+	// Load the port from the config file
 	portMap = make(map[string]string)
 )
 
 func main() {
 	// Load port Parameter
 	Utility.LoadPortConfig(portMap)
-	// Init their IP address
+	// Init gnf IP address
 	gnfIPs = Utility.LoadGnfAddress()
 
 	var wg sync.WaitGroup
 	wg.Add(3)
 	ch := make(chan DataStruct.UserData)
-	// Port talking with Clients Input
+	// Communication with Clients Input
 	go initUserListener(&wg, ch)
 	// Publish the Clients data to the GNF
 	go initControllerPub(&wg, ch)

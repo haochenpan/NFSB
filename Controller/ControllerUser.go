@@ -8,7 +8,7 @@ import (
 	zmq "github.com/pebbe/zmq4"
 )
 
-//Listening at 5555
+// Main function Listening for userInput
 func initUserListener(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 	defer wg.Done()
 	// Can add concurrency in the future for handling users request
@@ -41,7 +41,6 @@ func userWorker(ch chan DataStruct.UserData) {
 	worker.Connect("ipc://backend")
 
 	//Now this worker threads will listen to the value passed in from the client
-	// flag := false
 	var userData DataStruct.UserData
 	for {
 		data, _ := worker.RecvMessageBytes(zmq.DONTWAIT)

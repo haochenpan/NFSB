@@ -8,7 +8,7 @@ import (
 	zmq "github.com/pebbe/zmq4"
 )
 
-//Publisher for data: 5556
+// Listening from UserInput and Publish the data to GNF
 func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 	defer wg.Done()
 	context, _ := zmq.NewContext()
@@ -25,16 +25,12 @@ func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 			prepareSendingToGNFs(data, publisher)
 		}
 	}
-
-	//Need to filter out the specific IP and then send them to All
 }
 
 func prepareSendingToGNFs(data DataStruct.UserData, publisher *zmq.Socket) {
 	if len(data.GnfIPS) == len(gnfIPs) {
-		fmt.Println("Broadcast")
 		broadcastToGNF(data, publisher)
 	} else {
-		// Send to Specific gnfIPS
 		ipList := data.GnfIPS
 		for _, gnfIP := range ipList {
 			fmt.Println(gnfIP)
@@ -43,6 +39,7 @@ func prepareSendingToGNFs(data DataStruct.UserData, publisher *zmq.Socket) {
 	}
 }
 
+// Send to Specific gnfIPS
 func sendDataToGNF(address string, data DataStruct.UserData, publisher *zmq.Socket) {
 	publisher.SendMessage(
 		[][]byte{
@@ -51,6 +48,7 @@ func sendDataToGNF(address string, data DataStruct.UserData, publisher *zmq.Sock
 		0)
 }
 
+// Broadcast to all the GNF
 func broadcastToGNF(data DataStruct.UserData, publisher *zmq.Socket) {
 	publisher.SendMessage(
 		[][]byte{
