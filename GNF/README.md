@@ -171,4 +171,6 @@ Compared to the main routine, responses to commands and exception handling are d
 
 Implements more operation generator according to different distributions; 
 
-Add more DB backend support.
+Add more DB backend support;
+
+Add more unit tests.
