@@ -13,10 +13,13 @@ import (
 )
 
 var (
-	gnfIPs       []string
-	portMap      = make(map[string]string)
-	numServer    int
-	redisClients []*redis.Client
+	gnfIPs           []string
+	portMap          = make(map[string]string)
+	numServer        int
+	redisClients     []*redis.Client
+	outputFilePrefix string
+	CONN_TYPE        = "tcp"
+	CONN_HOST        = "localhost"
 )
 
 func running() {
@@ -29,7 +32,7 @@ func running() {
 	// Publish the Clients data to the GNF
 	go initControllerPub(&wg, ch)
 	// Subscriber listening the stats published by the Gnfs
-	go initControllerStatsSub(&wg)
+	go initControllerTCPStats(&wg)
 	wg.Wait()
 	// Function that handle communication with GNF
 }
@@ -46,17 +49,14 @@ func benchmark(rounds int) {
 
 	//Testing:
 	// Subscriber listening the stats published by the Gnfs
-	go initControllerStatsSubTest(&wg, statsCh)
+	go initControllerTCPStatsBenchmark(&wg, statsCh)
 	wg.Wait()
 }
 
 func main() {
-	fileName := "stats.txt"
-	Utility.CreateFile(fileName)
-
 	// Load port Parameter
 	Utility.LoadPortConfig(portMap)
-	// Init their IP address
+	// Populate GNF IP address
 	gnfIPs = Utility.LoadGnfAddress()
 	numServer = len(gnfIPs)
 
@@ -64,7 +64,7 @@ func main() {
 	redisClients = ExampleNewClient()
 	if len(os.Args) == 1 {
 		running()
-	} else if len(os.Args) == 3 {
+	} else if len(os.Args) == 4 {
 		if os.Args[1] != "benchmark" {
 			fmt.Println("Cannot understand your input")
 		} else {
@@ -72,9 +72,11 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			// Initialize the output.txt based on User request
+			outputFilePrefix = os.Args[3]
 			benchmark(rounds)
 		}
 	} else {
-		fmt.Println("Invalid Mode")
+		fmt.Println("Invalid Number of Parameter")
 	}
 }

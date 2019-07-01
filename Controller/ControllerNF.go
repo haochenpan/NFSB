@@ -4,7 +4,6 @@ import (
 	"NFSB/Config"
 	"NFSB/DataStruct"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -32,6 +31,7 @@ func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 	//Need to filter out the specific IP and then send them to All
 }
 
+// Note this function will also auto generate user Request to send to gnf
 func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 	defer wg.Done()
 	context, _ := zmq.NewContext()
@@ -46,54 +46,43 @@ func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
 	var data DataStruct.UserData
 	// Load once Run once
 	for i := 0; i < rounds; i++ {
-		fileName := "stats.txt"
-		seperator := "****************** round " + strconv.Itoa(i+1) + " ************************************\n"
-		Utility.AppendStatsToFile(fileName, seperator)
-
 		fmt.Println("**************************** New round of Load and Run***********************")
 
-		//Load Phase
-		Utility.AppendStatsToFile(fileName, "Load Phase\n")
 		fmt.Println("Load_Phase")
 		data.Action = "load"
 		prepareSendingToGNFsTest(data, publisher)
-
-		// time.Sleep(100 * time.Second)
-		// Wait until the stats channel
+		// Wait for the Load Phase Result
 		<-ch
-		// fmt.Println(ok)
 
 		// //Run Phase
 		fmt.Println("Run_Phase")
-		Utility.AppendStatsToFile(fileName, "Run Phase\n")
 		data.Action = "run"
 		//Asssuming all are going to perform the same task
 		data.GnfIPS = gnfIPs
 		prepareSendingToGNFsTest(data, publisher)
 
-		// Wait the result thread
+		// Wait for the Run Phase Result
 		<-ch
 
 		//clear redis db
 		clearRedisDB()
-		Utility.AppendStatsToFile(fileName, "\n")
 	}
 }
 
+// Normal User interaction
 func prepareSendingToGNFs(data DataStruct.UserData, publisher *zmq.Socket) {
 	if len(data.GnfIPS) == len(gnfIPs) {
-		fmt.Println("Broadcast")
 		broadcastToGNF(data, publisher)
 	} else {
 		// Send to Specific gnfIPS
 		ipList := data.GnfIPS
 		for _, gnfIP := range ipList {
-			fmt.Println(gnfIP)
 			sendDataToGNF(gnfIP, data, publisher)
 		}
 	}
 }
 
+// Benchmarking purpose
 func prepareSendingToGNFsTest(data DataStruct.UserData, publisher *zmq.Socket) {
 	data.GnfIPS = gnfIPs
 	loadNamePrefix := "workload"
@@ -104,25 +93,10 @@ func prepareSendingToGNFsTest(data DataStruct.UserData, publisher *zmq.Socket) {
 			data.WorkLoadFile = loadNamePrefix + strconv.Itoa(i) + ".txt"
 			sendDataToGNF(gnfIP, data, publisher)
 		}
-	} else {
-		// Randomly choose a workloadfile for them to run
-		i := rand.Intn(9)
-		data.WorkLoadFile = loadNamePrefix + strconv.Itoa(i)
-		if len(data.GnfIPS) == len(gnfIPs) {
-			fmt.Println("Broadcast")
-			broadcastToGNF(data, publisher)
-		} else {
-			// Send to Specific gnfIPS
-			ipList := data.GnfIPS
-			for _, gnfIP := range ipList {
-				sendDataToGNF(gnfIP, data, publisher)
-			}
-		}
 	}
 }
 
 func sendDataToGNF(address string, data DataStruct.UserData, publisher *zmq.Socket) {
-	fmt.Println("Send to" + address)
 	Utility.PrintUserData(data)
 	publisher.SendMessage(
 		[][]byte{

@@ -2,91 +2,189 @@ package main
 
 import (
 	"NFSB/Config"
-	gnf "NFSB/GNF"
 	"fmt"
+	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/go-redis/redis"
-	zmq "github.com/pebbe/zmq4"
 )
 
 //Subscriber for statss
-func initControllerStatsSub(wg *sync.WaitGroup) {
-	fileName := "stats.txt"
-	Utility.CreateFile(fileName)
+// func initControllerStatsSub(wg *sync.WaitGroup) {
+// 	defer wg.Done()
+// 	context, _ := zmq.NewContext()
+
+// 	subscriber, _ := context.NewSocket(zmq.SUB)
+// 	defer subscriber.Close()
+
+// 	// Connect to the subscriber to listening for their stats
+// 	defer wg.Done()
+
+// 	// in the future if we have more than one gnf
+// 	port, _ := portMap["controller_stats_port"]
+
+// 	//Test Cloud: Uncomment this
+// 	for _, ip := range gnfIPs {
+// 		subscriber.Connect("tcp://" + ip + ":" + port)
+// 	}
+
+// 	//Test Local: Use this
+// 	subscriber.Connect("tcp://localhost" + ":" + port)
+
+// 	subscriber.SetSubscribe("stat")
+// 	// TODO: in the future can make this parrallel working
+// 	for {
+// 		for i := 0; i < numServer; i++ {
+// 			subscriber.RecvBytes(0)
+// 			b, _ := subscriber.RecvBytes(0)
+// 			stats := gnf.DecodeBmStat(b)
+// 			Utility.AppendStatsToFile(outputFile, stats.String())
+// 			subscriber.RecvBytes(0)
+// 		}
+
+// 	}
+// }
+
+// func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
+// 	fileName := "stats.txt"
+// 	defer wg.Done()
+// 	context, _ := zmq.NewContext()
+
+// 	subscriber, _ := context.NewSocket(zmq.SUB)
+// 	defer subscriber.Close()
+
+// 	// Connect to the subscriber to listening for their stats
+// 	defer wg.Done()
+
+// 	// in the future if we have more than one gnf
+// 	port, _ := portMap["controller_stats_port"]
+
+// 	//Test Cloud: Uncomment this
+// 	for _, ip := range gnfIPs {
+// 		subscriber.Connect("tcp://" + ip + ":" + port)
+// 	}
+
+// 	//Test Local: Use this
+// 	subscriber.Connect("tcp://localhost" + ":" + port)
+
+// 	subscriber.SetSubscribe("stat")
+// 	// TODO: in the future can make this parrallel working
+// 	var round int64
+// 	for {
+// 		// Wait from all the response from the server
+// 		for i := 0; i < numServer; i++ {
+// 			subscriber.RecvBytes(0)
+// 			b, _ := subscriber.RecvBytes(0)
+// 			stats := gnf.DecodeBmStat(b)
+// 			Utility.AppendStatsToFile(fileName, stats.String())
+// 			subscriber.RecvBytes(0)
+// 			fmt.Println("Receive One Data")
+// 			round++
+// 		}
+// 		// Send a message to the send side telling the controller that it can start to do the next command
+// 		ch <- true
+// 	}
+// }
+
+func initControllerTCPStats(wg *sync.WaitGroup) {
 	defer wg.Done()
-	context, _ := zmq.NewContext()
-
-	subscriber, _ := context.NewSocket(zmq.SUB)
-	defer subscriber.Close()
-
-	// Connect to the subscriber to listening for their stats
-	defer wg.Done()
-
-	// in the future if we have more than one gnf
-	port, _ := portMap["controller_stats_port"]
-
-	//Test Cloud: Uncomment this
-	for _, ip := range gnfIPs {
-		subscriber.Connect("tcp://" + ip + ":" + port)
+	statsPort := portMap["controller_stats_port"]
+	l, err := net.Listen(CONN_TYPE, CONN_HOST+":"+statsPort)
+	if err != nil {
+		fmt.Println("Error listening:", err.Error())
+		os.Exit(1)
 	}
-
-	//Test Local: Use this
-	subscriber.Connect("tcp://localhost" + ":" + port)
-
-	subscriber.SetSubscribe("stat")
-	// TODO: in the future can make this parrallel working
+	// Close the listener when the application closes.
+	defer l.Close()
 	for {
-		for i := 0; i < numServer; i++ {
-			subscriber.RecvBytes(0)
-			b, _ := subscriber.RecvBytes(0)
-			stats := gnf.DecodeBmStat(b)
-			Utility.AppendStatsToFile(fileName, stats.String())
-			subscriber.RecvBytes(0)
+		// Listen for an incoming connection.
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting: ", err.Error())
+			os.Exit(1)
 		}
 
+		go handleStats(conn)
 	}
 }
 
-func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
-	fileName := "stats.txt"
-	defer wg.Done()
-	context, _ := zmq.NewContext()
-
-	subscriber, _ := context.NewSocket(zmq.SUB)
-	defer subscriber.Close()
-
-	// Connect to the subscriber to listening for their stats
-	defer wg.Done()
-
-	// in the future if we have more than one gnf
-	port, _ := portMap["controller_stats_port"]
-
-	//Test Cloud: Uncomment this
-	for _, ip := range gnfIPs {
-		subscriber.Connect("tcp://" + ip + ":" + port)
-	}
-
-	//Test Local: Use this
-	subscriber.Connect("tcp://localhost" + ":" + port)
-
-	subscriber.SetSubscribe("stat")
-	// TODO: in the future can make this parrallel working
-	var round int64
+func handleStats(conn net.Conn) {
+	fileName := outputFilePrefix + conn.RemoteAddr().String() + ".txt"
+	Utility.CreateFile(fileName)
 	for {
-		// Wait from all the response from the server
-		for i := 0; i < numServer; i++ {
-			subscriber.RecvBytes(0)
-			b, _ := subscriber.RecvBytes(0)
-			stats := gnf.DecodeBmStat(b)
-			Utility.AppendStatsToFile(fileName, stats.String())
-			subscriber.RecvBytes(0)
-			fmt.Println("Receive One Data")
-			round++
+		// Make a buffer to hold incoming data.
+		buf := make([]byte, 2048)
+		// Read the incoming connection into the buffer.
+		reqLen, _ := conn.Read(buf)
+		stats := string(buf[:reqLen])
+
+		Utility.AppendStatsToFile(fileName, stats)
+	}
+}
+
+func initControllerTCPStatsBenchmark(wg *sync.WaitGroup, roundChan chan bool) {
+	defer wg.Done()
+	statsPort := portMap["controller_stats_port"]
+	l, err := net.Listen(CONN_TYPE, CONN_HOST+":"+statsPort)
+	if err != nil {
+		fmt.Println("Error listening:", err.Error())
+		os.Exit(1)
+	}
+	// Close the listener when the application closes.
+	defer l.Close()
+	ch := make(chan bool)
+
+	go func(ch chan bool, roundChan chan bool) {
+		for {
+			// Wait till all the responses come back
+			for i := 0; i < numServer; i++ {
+				<-ch
+			}
+			// Send the signal to the main thread to trigger the next round
+			roundChan <- true
 		}
-		// Send a message to the send side telling the controller that it can start to do the next command
+	}(ch, roundChan)
+
+	for {
+		// Listen for an incoming connection.
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting: ", err.Error())
+			os.Exit(1)
+		}
+
+		go handleStats(conn)
+	}
+}
+
+func handleStatsBenchmark(conn net.Conn, ch chan bool) {
+	fileName := outputFilePrefix + conn.RemoteAddr().String() + ".txt"
+	Utility.CreateFile(fileName)
+	round := 1
+	for {
+		Utility.AppendStatsToFile(fileName, "Round"+strconv.Itoa(round)+"\n")
+		Utility.AppendStatsToFile(fileName, "Load Phase \n")
+		// Load Phase
+		// Make a buffer to hold incoming data.
+		buf := make([]byte, 2048)
+		// Read the incoming connection into the buffer.
+		reqLen, _ := conn.Read(buf)
+		stats := string(buf[:reqLen])
+
+		Utility.AppendStatsToFile(fileName, stats)
+		ch <- true
+
+		// Run Phase
+		Utility.AppendStatsToFile(fileName, "Run Phase \n")
+		buf = make([]byte, 2048)
+		// Read the incoming connection into the buffer.
+		reqLen, _ = conn.Read(buf)
+		stats = string(buf[:reqLen])
+
+		Utility.AppendStatsToFile(fileName, stats)
 		ch <- true
 	}
 }

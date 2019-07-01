@@ -3,11 +3,13 @@ package gnf
 import (
 	"NFSB/DataStruct"
 	"fmt"
-	zmq "github.com/pebbe/zmq4"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 func mockSendController() {
@@ -150,17 +152,17 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 			allToExe <- exeCmd{NExit, "exeRecvThread"}
 			return
 			// gracefully exit
-		case tuple := <- recvChan:
+		case tuple := <-recvChan:
 
-		//default:
-		//	var tuple [][] byte // three tuple: filter/flag, msg, msg_section
-		//	var err error
-		//	if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
-		//		//fmt.Println("err6=", err)
-		//		//fmt.Println("sleep for one sec")
-		//		time.Sleep(1 * time.Second)
-		//		continue
-		//	}
+			//default:
+			//	var tuple [][] byte // three tuple: filter/flag, msg, msg_section
+			//	var err error
+			//	if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
+			//		//fmt.Println("err6=", err)
+			//		//fmt.Println("sleep for one sec")
+			//		time.Sleep(1 * time.Second)
+			//		continue
+			//	}
 			data := DataStruct.Decode(tuple)
 			switch data.Action {
 			case "quit":
@@ -202,27 +204,14 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 	upon exit: does not close any channel
 	upon exception: may send exeCmd{EExit, "exeSendThread exception"}
 */
-func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan BmStats, port string) {
+func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan BmStats, controllerIP, port string) {
 
-	var cxt *zmq.Context
-	var pub *zmq.Socket
+	var conn net.Conn
 	var err error
 
 	//fmt.Println("port,", port)
-	if cxt, err = zmq.NewContext(); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-		fmt.Println("err1=", err)
-		return
-	}
 
-	if pub, err = cxt.NewSocket(zmq.PUB); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-		fmt.Println("err2=", err)
-		return
-	}
-	defer pub.Close()
-
-	if err = pub.Bind("tcp://*:" + port); err != nil {
+	if conn, err = net.Dial("tcp", controllerIP+":"+port); err != nil {
 		allToExe <- exeCmd{EExit, "exeSendThread exception"}
 		fmt.Println("err2=", err)
 		return
@@ -244,11 +233,7 @@ func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan B
 			fmt.Println("looping...")
 			bytes := EncodeBmStat(&stat)
 			//fmt.Println(bytes)
-			if _, err := pub.SendMessage([][]byte{[]byte("stat"), bytes}, 0); err != nil {
-				//fmt.Println("err3=", err)
-			} else {
-				//fmt.Println("send,", ret)
-			}
+			conn.Write(bytes)
 		}
 	}
 }

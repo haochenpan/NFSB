@@ -51,9 +51,9 @@ func ExampleNewClient() []*redis.Client {
 	return clients
 }
 
-func main() {
-	redisClients = ExampleNewClient()
-	redisClients[0].SAdd("abc", 1)
-	redisClients[1].SAdd("abc", 1)
-	clearRedisDB()
-}
+// func main() {
+// 	redisClients = ExampleNewClient()
+// 	redisClients[0].SAdd("abc", 1)
+// 	redisClients[1].SAdd("abc", 1)
+// 	clearRedisDB()
+// }

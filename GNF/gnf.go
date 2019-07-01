@@ -112,7 +112,7 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- Bm
 		} else if stat.succeed && stat.genCmd.Sig == WriteSig {
 			sWrite++
 			sWriteLat = append(sWriteLat, dur)
-		} else if ! stat.succeed && stat.genCmd.Sig == ReadSig {
+		} else if !stat.succeed && stat.genCmd.Sig == ReadSig {
 			fRead++
 			fReadLat = append(fReadLat, dur)
 		} else {
@@ -292,12 +292,12 @@ func executorRoutine(controllerIp string, subPort, pubPort int) {
 	//	allToExe <- exeCmd{GnfStop, ""}
 	//}()
 
-	go exeSignThread(allToExe, isDone)                                      // needToWait, exit when isDone is closed
-	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // needToWait, exit when isDone is closed
-	go exeSendThread(allToExe, isDone, exeToCtl, strconv.Itoa(pubPort))     // needToWait, exit when isDone is closed
+	go exeSignThread(allToExe, isDone)                                                // needToWait, exit when isDone is closed
+	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort))           // needToWait, exit when isDone is closed
+	go exeSendThread(allToExe, isDone, exeToCtl, controllerIp, strconv.Itoa(pubPort)) // needToWait, exit when isDone is closed
 
-	for i:=0; i<2; i++ {
-		sig := <- allToExe
+	for i := 0; i < 2; i++ {
+		sig := <-allToExe
 		if sig.sig != Ready {
 			fmt.Println(sig.arg)
 			return
@@ -350,8 +350,8 @@ func executorRoutine(controllerIp string, subPort, pubPort int) {
 					doExit()
 				}
 			}
-		//default:
-		//	time.Sleep(1 * time.Second)
+			//default:
+			//	time.Sleep(1 * time.Second)
 		}
 	}
 
