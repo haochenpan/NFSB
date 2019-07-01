@@ -1,4 +1,4 @@
-  #### Various Config File
+#### Various Config Files
 ```bash
 # Config.txt:
 Specify the port for Controller, GNF, and UserInput communication.
