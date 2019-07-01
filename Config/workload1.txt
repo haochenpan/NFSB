@@ -6,11 +6,11 @@ remoteDBPassword          =
 remoteDBLoadThreadCount   = 5
 remoteDBRunThreadCount    = 5
 
-remoteDBInsertKeyRange         = 0-200
+remoteDBInsertKeyRange         = 0-2000
 remoteDBInsertValueSizeInByte  = 64
 
-remoteDBOperationCount         = 200
-remoteDBOperationRange         = 0-200
+remoteDBOperationCount         = 2000
+remoteDBOperationRange         = 0-2000
 remoteDBOperationDistribution  = uniform
 remoteDBReadRatio              = 0.9
 remoteDBWriteRatio             = 0.1
