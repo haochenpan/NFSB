@@ -139,36 +139,8 @@ func exeRecvThread(allToExe chan<- exeCmd, isDone <-chan bool, ip string, port s
 			//_, _ = fmt.Fprintln(os.Stdout, "exeRecvThread try to exit - 5")
 			allToExe <- exeCmd{NormalExit, "exeRecvThread"}
 			return
-<<<<<<< HEAD
-			// gracefully exit
-		case tuple := <-recvChan:
-
-			//default:
-			//	var tuple [][] byte // three tuple: filter/flag, msg, msg_section
-			//	var err error
-			//	if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
-			//		//fmt.Println("err6=", err)
-			//		//fmt.Println("sleep for one sec")
-			//		time.Sleep(1 * time.Second)
-			//		continue
-			//	}
-||||||| merged common ancestors
-			// gracefully exit
-		case tuple := <- recvChan:
-
-		//default:
-		//	var tuple [][] byte // three tuple: filter/flag, msg, msg_section
-		//	var err error
-		//	if tuple, err = sub.RecvMessageBytes(zmq.DONTWAIT); err != nil {
-		//		//fmt.Println("err6=", err)
-		//		//fmt.Println("sleep for one sec")
-		//		time.Sleep(1 * time.Second)
-		//		continue
-		//	}
-=======
 
 		case tuple := <-recvChan:
->>>>>>> 85c640b2eb29426ff9ab959f79b247bc8944e04b
 			data := DataStruct.Decode(tuple)
 
 			switch data.Action {
@@ -217,47 +189,8 @@ func exeSendThread(allToExe chan<- exeCmd, isDone <-chan bool, exeToCtl <-chan B
 	var conn net.Conn
 	var err error
 
-<<<<<<< HEAD
-	//fmt.Println("port,", port)
-||||||| merged common ancestors
-	//fmt.Println("port,", port)
-	if cxt, err = zmq.NewContext(); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-		fmt.Println("err1=", err)
-		return
-	}
-
-	if pub, err = cxt.NewSocket(zmq.PUB); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-		fmt.Println("err2=", err)
-		return
-	}
-	defer pub.Close()
-=======
-	if cxt, err = zmq.NewContext(); err != nil {
-		allToExe <- exeCmd{ErrorExit, "exeSendThread exception"}
-		fmt.Println("err1=", err)
-		return
-	}
-
-	if pub, err = cxt.NewSocket(zmq.PUB); err != nil {
-		allToExe <- exeCmd{ErrorExit, "exeSendThread exception"}
-		fmt.Println("err2=", err)
-		return
-	}
-	defer pub.Close()
->>>>>>> 85c640b2eb29426ff9ab959f79b247bc8944e04b
-
-<<<<<<< HEAD
 	if conn, err = net.Dial("tcp", controllerIP+":"+port); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-||||||| merged common ancestors
-	if err = pub.Bind("tcp://*:" + port); err != nil {
-		allToExe <- exeCmd{EExit, "exeSendThread exception"}
-=======
-	if err = pub.Bind("tcp://*:" + port); err != nil {
 		allToExe <- exeCmd{ErrorExit, "exeSendThread exception"}
->>>>>>> 85c640b2eb29426ff9ab959f79b247bc8944e04b
 		fmt.Println("err2=", err)
 		return
 	}

@@ -113,16 +113,8 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- Bm
 			sReadLat = append(sReadLat, duration)
 		} else if stat.succeed && stat.genCmd.Sig == DoWrite {
 			sWrite++
-<<<<<<< HEAD
-			sWriteLat = append(sWriteLat, dur)
-		} else if !stat.succeed && stat.genCmd.Sig == ReadSig {
-||||||| merged common ancestors
-			sWriteLat = append(sWriteLat, dur)
-		} else if ! stat.succeed && stat.genCmd.Sig == ReadSig {
-=======
 			sWriteLat = append(sWriteLat, duration)
-		} else if ! stat.succeed && stat.genCmd.Sig == DoRead {
->>>>>>> 85c640b2eb29426ff9ab959f79b247bc8944e04b
+		} else if !stat.succeed && stat.genCmd.Sig == DoRead {
 			fRead++
 			fReadLat = append(fReadLat, duration)
 		} else {
@@ -277,48 +269,14 @@ func mainRoutine(controllerIp string, subPort, pubPort int) {
 	exeToCtl := make(chan BmStats)
 	isDone := make(chan bool)
 
-	go exeSignThread(allToExe, isDone)                                      // exit when isDone is closed
-	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // exit when isDone is closed
-	go exeSendThread(allToExe, isDone, exeToCtl, strconv.Itoa(pubPort))     // exit when isDone is closed
+	go exeSignThread(allToExe, isDone)                                                // exit when isDone is closed
+	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort))           // exit when isDone is closed
+	go exeSendThread(allToExe, isDone, exeToCtl, controllerIp, strconv.Itoa(pubPort)) // exit when isDone is closed
 
-<<<<<<< HEAD
-	//go func() {
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{CtrlLoad, "Config/workload_template"}
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{BmStop, ""}
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{GnfStop, ""}
-	//}()
-
-	go exeSignThread(allToExe, isDone)                                                // needToWait, exit when isDone is closed
-	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort))           // needToWait, exit when isDone is closed
-	go exeSendThread(allToExe, isDone, exeToCtl, controllerIp, strconv.Itoa(pubPort)) // needToWait, exit when isDone is closed
-
-	for i := 0; i < 2; i++ {
-		sig := <-allToExe
-||||||| merged common ancestors
-	//go func() {
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{CtrlLoad, "Config/workload_template"}
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{BmStop, ""}
-	//	time.Sleep(2 * time.Second)
-	//	allToExe <- exeCmd{GnfStop, ""}
-	//}()
-
-	go exeSignThread(allToExe, isDone)                                      // needToWait, exit when isDone is closed
-	go exeRecvThread(allToExe, isDone, controllerIp, strconv.Itoa(subPort)) // needToWait, exit when isDone is closed
-	go exeSendThread(allToExe, isDone, exeToCtl, strconv.Itoa(pubPort))     // needToWait, exit when isDone is closed
-
-	for i:=0; i<2; i++ {
-		sig := <- allToExe
-=======
 	// wait for exeRecvThread and exeSendThread,
 	// make sure they won't produce EEXIT signal from here on
 	for i := 0; i < 2; i++ {
 		sig := <-allToExe
->>>>>>> 85c640b2eb29426ff9ab959f79b247bc8944e04b
 		if sig.sig != Ready {
 			fmt.Println("communication threads are not ready", sig.sig, sig.arg)
 			return
@@ -368,14 +326,6 @@ func mainRoutine(controllerIp string, subPort, pubPort int) {
 			if shouldExit {
 				doExit()
 			}
-<<<<<<< HEAD
-			//default:
-			//	time.Sleep(1 * time.Second)
-||||||| merged common ancestors
-		//default:
-		//	time.Sleep(1 * time.Second)
-=======
->>>>>>> 85c640b2eb29426ff9ab959f79b247bc8944e04b
 		}
 	}
 	//fmt.Println("mainRoutine exits")
@@ -464,7 +414,7 @@ func GnfMain() error {
 		//fmt.Println("from allToExe", e.arg)
 		//fmt.Println("main exits")
 
-	// gnf with a controller
+		// gnf with a controller
 	} else {
 
 		if myIp, err := getIp(); err != nil {
