@@ -19,11 +19,11 @@ go run *.go
 ```bash
 # start Controller with UserInput, parameters see the output
 cd Controller
-go run *.go
+go run *.go outputFileName.txt
 
 # start Controller with Benchmark mode, parameters see the output
 cd Controller
-go run *.go benchmark [# of rounds]
+go run *.go benchmark number_of_rounds outputFileName.txt
 ```
 
 
