@@ -111,7 +111,6 @@ func initControllerTCPStats(wg *sync.WaitGroup) {
 
 		go handleStats(conn)
 	}
-	fmt.Println("Bye")
 }
 
 func handleStats(conn net.Conn) {

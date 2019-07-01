@@ -357,7 +357,6 @@ func mainRoutine(controllerIp string, subPort, pubPort int) {
 	or nil if everything works as intended
 */
 func GnfMain() error {
-
 	gnf := flag.NewFlagSet("gnf", flag.ExitOnError)
 	ip := gnf.String("ip", "127.0.0.1", "controller ip")
 	port := gnf.Int("port", 6667, "controller sub port")
@@ -446,6 +445,5 @@ func GnfMain() error {
 		fmt.Println("controller stat port=", *stat)
 		mainRoutine(*ip, *port, *stat)
 	}
-
 	return nil
 }

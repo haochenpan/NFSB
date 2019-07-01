@@ -54,6 +54,9 @@ func benchmark(rounds int) {
 }
 
 func main() {
+	//Waiting for GNF to join
+	waitGnfJoin()
+
 	// Load port Parameter
 	Utility.LoadPortConfig(portMap)
 	// Populate GNF IP address

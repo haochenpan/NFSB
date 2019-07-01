@@ -4,12 +4,45 @@ import (
 	"NFSB/Config"
 	"NFSB/DataStruct"
 	"fmt"
+	"net"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	zmq "github.com/pebbe/zmq4"
 )
+
+func waitGnfJoin() {
+	fmt.Println("Waiting for GNF to join...")
+	l, err := net.Listen(CONN_TYPE, CONN_HOST+":"+"6669")
+	if err != nil {
+		fmt.Println("Error listening:", err.Error())
+		os.Exit(1)
+	}
+	// Close the listener when the application closes.
+	defer l.Close()
+
+	for i := 0; i < numServer; i++ {
+		// Listen for an incoming connection.
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting: ", err.Error())
+			os.Exit(1)
+		}
+		go handlePingResponse(conn)
+
+	}
+	fmt.Println("Every GNF is ALive")
+}
+
+func handlePingResponse(conn net.Conn) {
+	defer conn.Close()
+	buf := make([]byte, 64)
+	// Read the incoming connection into the buffer.
+	conn.Read(buf)
+	fmt.Println(conn.RemoteAddr().String() + "is alive")
+}
 
 func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 	defer wg.Done()
