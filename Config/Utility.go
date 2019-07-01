@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	prefix = "../Config/"
+	prefix          = "../Config/"
+	workload_prefix = "../"
 )
 
 func ReadControllerIp() string {
@@ -71,7 +72,7 @@ func ReadGNFIP() []string {
 }
 
 func IsFileExist(filename string) bool {
-	if _, err := os.Stat(prefix + filename); err != nil {
+	if _, err := os.Stat(workload_prefix + filename); err != nil {
 		if os.IsNotExist(err) {
 			return false
 		}
@@ -80,7 +81,7 @@ func IsFileExist(filename string) bool {
 }
 
 func LoadWorkLoadFile(filename string) string {
-	fileBytes, err := ioutil.ReadFile(prefix + filename)
+	fileBytes, err := ioutil.ReadFile(workload_prefix + filename)
 	if err != nil {
 		log.Fatal(err)
 	}
