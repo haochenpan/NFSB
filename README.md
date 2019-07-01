@@ -11,18 +11,14 @@ go get github.com/go-redis/redis
 #### Start the UserInput
 ```bash
 # start  UserInput, parameters see the output
-cd into UserInput
+cd UserInput
 go run *.go
-
-# start Controller with Benchmark mode, parameters see the output
-cd into Controller directory
-go run *.go benchmark [# of rounds]
 ```
 
 #### Start the controller
 ```bash
 # start Controller with UserInput, parameters see the output
-cd into Controller directory
+cd Controller
 go run *.go
 
 # start Controller with Benchmark mode, parameters see the output
