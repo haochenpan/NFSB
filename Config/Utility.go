@@ -127,7 +127,7 @@ func PrintGNFNotKnown() {
 }
 
 func CreateFile(fileName string) {
-	path := prefix + fileName
+	path := workload_prefix + fileName
 	_, err := os.Stat(path)
 
 	// if file does not exist we create it

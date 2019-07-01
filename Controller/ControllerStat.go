@@ -14,8 +14,6 @@ import (
 
 //Subscriber for statss
 func initControllerStatsSub(wg *sync.WaitGroup) {
-	fileName := "stats.txt"
-	Utility.CreateFile(fileName)
 	defer wg.Done()
 	context, _ := zmq.NewContext()
 
@@ -51,7 +49,6 @@ func initControllerStatsSub(wg *sync.WaitGroup) {
 }
 
 func initControllerStatsSubTest(wg *sync.WaitGroup, ch chan bool) {
-	fileName := "stats.txt"
 	defer wg.Done()
 	context, _ := zmq.NewContext()
 

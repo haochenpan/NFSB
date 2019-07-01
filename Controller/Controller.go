@@ -17,6 +17,7 @@ var (
 	portMap      = make(map[string]string)
 	numServer    int
 	redisClients []*redis.Client
+	fileName     string
 )
 
 func running() {
@@ -51,9 +52,6 @@ func benchmark(rounds int) {
 }
 
 func main() {
-	fileName := "stats.txt"
-	Utility.CreateFile(fileName)
-
 	// Load port Parameter
 	Utility.LoadPortConfig(portMap)
 	// Init their IP address
@@ -64,7 +62,7 @@ func main() {
 	redisClients = ExampleNewClient()
 	if len(os.Args) == 1 {
 		running()
-	} else if len(os.Args) == 3 {
+	} else if len(os.Args) == 4 {
 		if os.Args[1] != "benchmark" {
 			fmt.Println("Cannot understand your input")
 		} else {
@@ -72,9 +70,13 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			// Load user's file data
+			fileName = os.Args[3]
+			// Create the File under the Main
+			Utility.CreateFile(fileName)
 			benchmark(rounds)
 		}
 	} else {
-		fmt.Println("Invalid Mode")
+		fmt.Println("Invalid Number of parameters")
 	}
 }
