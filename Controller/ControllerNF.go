@@ -24,7 +24,7 @@ func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 		select {
 		case data := <-ch:
 			// Get the data from the threads that listening for UserInput
-			prepareSendingToGNFsTest(data, publisher)
+			prepareSendingToGNFs(data, publisher)
 		}
 	}
 }

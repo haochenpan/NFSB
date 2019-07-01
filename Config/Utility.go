@@ -141,7 +141,7 @@ func CreateFile(fileName string) {
 }
 
 func AppendStatsToFile(path, stats string) {
-	f, err := os.OpenFile(prefix+path, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	f, err := os.OpenFile(workload_prefix+path, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	defer f.Close()
 	if err != nil {
 		log.Fatal(err)
