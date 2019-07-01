@@ -2,20 +2,30 @@
 # put a # in front of a parameter or leaving a field empty will cause GNF to load the default value
 # please update one parameter per line using a single equal sign
 
+
+# key range syntax  : (inclusive start index)-(exclusive end index)[,(start index)-(end index)...]
+# apply to          : remoteDBInsertKeyRange, remoteDBOperationRange
+# example key ranges: 0-1 (only key 0)
+#                   : 5-100,1000-5000,6000-6001 (key 5, 6,...,99,1000,1001,...,4999, 6000)
+# non-example       : 1000-1 (the end index is strictly greater than the start index)
+#                   : 1-1000,1000-2000 (do 1-2000 instead for now, may support in the future)
+
+
 # remote DB
-remoteDB                  = redis
-remoteDBHost              = localhost
-remoteDBPort              = 6379
-remoteDBPassword          =
+    remoteDB                  = redis  # redis (for now)
+    remoteDBHost              = localhost
+    remoteDBPort              = 6379
+    remoteDBPassword          =
 
-remoteDBLoadThreadCount   = 1
-remoteDBRunThreadCount    = 1
+    remoteDBLoadThreadCount   = 1
+    remoteDBRunThreadCount    = 1
 
-remoteDBInsertKeyRange         = 0-1000
-remoteDBInsertValueSizeInByte  = 64
+    remoteDBInsertKeyRange         = 0-1000
+    remoteDBInsertValueSizeInByte  = 64
 
-remoteDBOperationCount         = 1000
-remoteDBOperationRange         = 0-1000
-remoteDBOperationDistribution  = uniform
-remoteDBReadRatio              = 0.9
-remoteDBWriteRatio             = 0.1  # won't be used, it will be calculated by (1 - remoteDBReadRatio)
+    remoteDBOperationCount         = 1000
+    remoteDBOperationRange         = 0-1000
+
+    remoteDBOperationDistribution  = uniform  # uniform | zipfian
+    remoteDBReadRatio              = 0.9
+    remoteDBWriteRatio             = 0.1  # won't be used, it will be calculated by (1 - remoteDBReadRatio)
