@@ -29,26 +29,19 @@ func waitGnfJoin() {
 		fmt.Println("Error accepting: ", err.Error())
 		os.Exit(1)
 	}
-	ch := make(chan bool)
 
 	for i := 0; i < numServer; i++ {
-		go handlePingResponse(conn, ch)
+		handlePingResponse(conn)
 	}
-
-	for i := 0; i < numServer; i++ {
-		<-ch
-	}
-
 	fmt.Println("Every GNF is ALive")
 }
 
-func handlePingResponse(conn net.Conn, ch chan bool) {
+func handlePingResponse(conn net.Conn) {
 	defer conn.Close()
 	buf := make([]byte, 64)
 	// Read the incoming connection into the buffer.
 	conn.Read(buf)
 	fmt.Println(conn.RemoteAddr().String() + "is alive")
-	ch <- true
 }
 
 func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
