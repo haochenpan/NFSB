@@ -158,7 +158,7 @@ func initControllerTCPStatsBenchmark(wg *sync.WaitGroup, roundChan chan bool) {
 			os.Exit(1)
 		}
 
-		go handleStats(conn)
+		go handleStatsBenchmark(conn, ch)
 	}
 }
 
