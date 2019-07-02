@@ -66,7 +66,6 @@ func main() {
 		// Create the File under the Main
 		outputFilePrefix = os.Args[1]
 		//Waiting for GNF to join
-		waitGnfJoin()
 		running()
 	} else if len(os.Args) == 4 {
 		if os.Args[1] != "benchmark" {
@@ -78,7 +77,6 @@ func main() {
 			}
 			// Initialize the output.txt based on User request
 			outputFilePrefix = os.Args[3]
-			waitGnfJoin()
 			benchmark(rounds)
 		}
 	} else {

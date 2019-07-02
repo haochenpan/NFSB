@@ -45,6 +45,7 @@ func handlePingResponse(conn net.Conn) {
 }
 
 func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
+	waitGnfJoin()
 	defer wg.Done()
 	context, _ := zmq.NewContext()
 
@@ -64,6 +65,7 @@ func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
 
 // Note this function will also auto generate user Request to send to gnf
 func initControllerPubTest(wg *sync.WaitGroup, ch chan bool, rounds int) {
+	waitGnfJoin()
 	defer wg.Done()
 	context, _ := zmq.NewContext()
 
