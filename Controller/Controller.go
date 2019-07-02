@@ -54,9 +54,6 @@ func benchmark(rounds int) {
 }
 
 func main() {
-	//Waiting for GNF to join
-	waitGnfJoin()
-
 	// Load port Parameter
 	Utility.LoadPortConfig(portMap)
 	// Populate GNF IP address
@@ -68,6 +65,8 @@ func main() {
 	if len(os.Args) == 2 {
 		// Create the File under the Main
 		outputFilePrefix = os.Args[1]
+		//Waiting for GNF to join
+		waitGnfJoin()
 		running()
 	} else if len(os.Args) == 4 {
 		if os.Args[1] != "benchmark" {
@@ -79,6 +78,7 @@ func main() {
 			}
 			// Initialize the output.txt based on User request
 			outputFilePrefix = os.Args[3]
+			waitGnfJoin()
 			benchmark(rounds)
 		}
 	} else {
