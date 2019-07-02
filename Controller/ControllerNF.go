@@ -23,25 +23,32 @@ func waitGnfJoin() {
 	// Close the listener when the application closes.
 	defer l.Close()
 
-	for i := 0; i < numServer; i++ {
-		// Listen for an incoming connection.
-		conn, err := l.Accept()
-		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
-			os.Exit(1)
-		}
-		go handlePingResponse(conn)
-
+	// Listen for an incoming connection.
+	conn, err := l.Accept()
+	if err != nil {
+		fmt.Println("Error accepting: ", err.Error())
+		os.Exit(1)
 	}
+	ch := make(chan bool)
+
+	for i := 0; i < numServer; i++ {
+		go handlePingResponse(conn, ch)
+	}
+
+	for i := 0; i < numServer; i++ {
+		<-ch
+	}
+
 	fmt.Println("Every GNF is ALive")
 }
 
-func handlePingResponse(conn net.Conn) {
+func handlePingResponse(conn net.Conn, ch chan bool) {
 	defer conn.Close()
 	buf := make([]byte, 64)
 	// Read the incoming connection into the buffer.
 	conn.Read(buf)
 	fmt.Println(conn.RemoteAddr().String() + "is alive")
+	ch <- true
 }
 
 func initControllerPub(wg *sync.WaitGroup, ch chan DataStruct.UserData) {
