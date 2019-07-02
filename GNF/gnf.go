@@ -440,18 +440,18 @@ func GnfMain() error {
 		} else {
 			fmt.Println("my ip=", myIp)
 		}
-
+		sendPingToController(*ip)
 		fmt.Println("controller ip=", *ip)
 		fmt.Println("controller nf port=", *port)
 		fmt.Println("controller stat port=", *stat)
 		mainRoutine(*ip, *port, *stat)
-		sendPingToController(*ip)
 	}
 	return nil
 }
 
 // Send Pong to Controller
 func sendPingToController(controllerIP string) {
+	fmt.Println("Pong to Controller")
 	var conn net.Conn
 	var err error
 
