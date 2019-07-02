@@ -27,6 +27,7 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"sort"
 	"strconv"
@@ -444,6 +445,21 @@ func GnfMain() error {
 		fmt.Println("controller nf port=", *port)
 		fmt.Println("controller stat port=", *stat)
 		mainRoutine(*ip, *port, *stat)
+		sendPingToController(*ip)
 	}
 	return nil
+}
+
+// Send Pong to Controller
+func sendPingToController(controllerIP string) {
+	var conn net.Conn
+	var err error
+
+	port := "6669"
+
+	if conn, err = net.Dial("tcp", controllerIP+":"+port); err != nil {
+		fmt.Println("err2=", err)
+	} else {
+		conn.Write([]byte("Alive"))
+	}
 }
