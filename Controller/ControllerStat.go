@@ -174,9 +174,9 @@ func handleStatsBenchmark(conn net.Conn, ch chan bool) {
 		buf := make([]byte, 2048)
 		// Read the incoming connection into the buffer.
 		reqLen, _ := conn.Read(buf)
-		stats := string(buf[:reqLen])
+		stats := gnf.DecodeBmStat(buf[:reqLen])
 
-		Utility.AppendStatsToFile(fileName, stats)
+		Utility.AppendStatsToFile(fileName, stats.String())
 		ch <- true
 
 		// Run Phase
@@ -184,9 +184,9 @@ func handleStatsBenchmark(conn net.Conn, ch chan bool) {
 		buf = make([]byte, 2048)
 		// Read the incoming connection into the buffer.
 		reqLen, _ = conn.Read(buf)
-		stats = string(buf[:reqLen])
+		stats = gnf.DecodeBmStat(buf[:reqLen])
 
-		Utility.AppendStatsToFile(fileName, stats)
+		Utility.AppendStatsToFile(fileName, stats.String())
 		ch <- true
 		round++
 	}
