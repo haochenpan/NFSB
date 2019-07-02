@@ -23,14 +23,13 @@ func waitGnfJoin() {
 	// Close the listener when the application closes.
 	defer l.Close()
 
-	// Listen for an incoming connection.
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting: ", err.Error())
-		os.Exit(1)
-	}
-
 	for i := 0; i < numServer; i++ {
+		// Listen for an incoming connection.
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting: ", err.Error())
+			os.Exit(1)
+		}
 		handlePingResponse(conn)
 	}
 	fmt.Println("Every GNF is ALive")
