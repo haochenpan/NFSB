@@ -23,7 +23,7 @@ go run *.go outputFileName.txt
 
 # start Controller with Benchmark mode, parameters see the output
 cd Controller
-go run *.go benchmark number_of_rounds outputFileName.txt
+go run *.go benchmark number_of_rounds outputFilePrefixName [Note for benchmark, do not add .txt or others]
 ```
 
 
