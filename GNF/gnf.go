@@ -39,14 +39,14 @@ import (
 
 	exit condition: when genToCli is closed by generator or encountered an exception in the load phase
 	upon exit: does not close any channel
-	upon exception: may send exeCmd{ErrorExit, "cliThread exception"}
+	upon exception: may send exeCmd{ErrorExit, "clientThread exception"}
 
 	genToCli: a channel from operation generator to client threads
 	cliToSta: a channel from client threads to the statistics thread
 	allToExe: a channel from the sender thread to the executor thread
 
 */
-func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats,
+func clientThread(genToCli <-chan genCmd, cliToSta chan<- stats,
 	allToExe chan<- exeCmd, threadIndex int, db DBClient, phase exePhase) {
 
 	var cliSrc = rand.NewSource(time.Now().UTC().UnixNano())
@@ -73,9 +73,9 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats,
 
 		// if there's an error in the load phase
 		if err != nil && phase == LoadPhase {
-			//_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return early, idx=", threadIndex)
+			//_, _ = fmt.Fprintln(os.Stdout, "clientThread tries to return early, idx=", threadIndex)
 			cliToSta <- stats{threadIndex, false, cmd, time1, time2}
-			allToExe <- exeCmd{ErrorExit, "cliThread exception"}
+			allToExe <- exeCmd{ErrorExit, "clientThread exception"}
 			return
 
 			// if there's an error in the run phase
@@ -87,8 +87,8 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats,
 			cliToSta <- stats{threadIndex, true, cmd, time1, time2}
 		}
 	}
-	//_, _ = fmt.Fprintln(os.Stdout, "cliThread tries to return normally, idx=", threadIndex)
-	allToExe <- exeCmd{NormalExit, "cliThread"}
+	//_, _ = fmt.Fprintln(os.Stdout, "clientThread tries to return normally, idx=", threadIndex)
+	allToExe <- exeCmd{NormalExit, "clientThread"}
 
 }
 
@@ -105,7 +105,7 @@ func cliThread(genToCli <-chan genCmd, cliToSta chan<- stats,
 	staToExe: a channel from the statistics thread to the executor thread
 
 */
-func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- BmStats) {
+func statsThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- BmStats) {
 
 	// successful read, successful write, failed read, failed write
 	var sRead, sWrite, fRead, fWrite int
@@ -170,15 +170,15 @@ func staThread(cliToSta <-chan stats, allToExe chan<- exeCmd, staToExe chan<- Bm
 		FWrite95pLat: fWriteLat.get95pLat(),
 	}
 
-	//_, _ = fmt.Fprintln(os.Stdout, "staThread tries to return normally - 2")
-	//allToExe <- exeCmd{NormalExit, "staThread"}
+	//_, _ = fmt.Fprintln(os.Stdout, "statsThread tries to return normally - 2")
+	//allToExe <- exeCmd{NormalExit, "statsThread"}
 	staToExe <- bmStats
 	close(staToExe)
 
 }
 
 /*
-	executor's concurrent logic during benchmarking
+	executor's behavior during benchmarking
 
 	exit condition: receives GnfStop or BmkStop or an EEXIT signal from client threads
 	upon exit: return a bool indicates whether the outer method mainRoutine() should exit the loop
@@ -208,11 +208,11 @@ func benchmarkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd) (bool,
 	// starts client threads
 	clients := getRemoteDBClients(wl, phase)
 	for i, cli := range clients {
-		go cliThread(genToCli, cliToSta, allToExe, i, cli, phase)
+		go clientThread(genToCli, cliToSta, allToExe, i, cli, phase)
 	}
 
-	// stats statistics thread
-	go staThread(cliToSta, allToExe, staToExe)
+	// starts statistics thread
+	go statsThread(cliToSta, allToExe, staToExe)
 
 	// has BmkStop signal received;
 	// should GNF stop b/c an exception or GnfStop signal
@@ -270,7 +270,7 @@ func benchmarkRoutine(wl *Workload, phase exePhase, allToExe chan exeCmd) (bool,
 }
 
 /*
-	executor's concurrent logic while not benchmarking (waiting for controller's signals)
+	executor's behavior when not benchmarking (waiting for controller's signals)
 
 	exit condition: receives GnfStop or an EEXIT signal from pub sub threads
 	upon exit: hopefully release all resources without incurring a deadlock
@@ -396,7 +396,7 @@ func GnfMain() error {
 		return errors.New(err)
 	}
 
-	// gnf-cli
+	// if arguments of gnf-cli are parsed, start gnf-cli
 	if cli.Parsed() {
 
 		wl := InitWorkload()
@@ -430,7 +430,7 @@ func GnfMain() error {
 		//fmt.Println("from allToExe", e.arg)
 		//fmt.Println("main exits")
 
-		// gnf with a controller
+	// else, start a gnf that is able to receive commands from controller
 	} else {
 
 		if myIp, err := getIp(); err != nil {

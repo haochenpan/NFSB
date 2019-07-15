@@ -61,6 +61,7 @@ type stats struct {
 	end         time.Time
 }
 
+// TODO: change the name to StatsMsg
 // from statistics thread to executor then to pub thread / print out
 type BmStats struct {
 	IP        string

@@ -64,7 +64,7 @@ func TestWorkload_UpdateWorkloadByLine(t *testing.T) {
 }
 
 func TestWorkload_UpdateWorkloadByFile(t *testing.T) {
-	path1, path3 := "../Config/workload_for_testing", "workload_not_exist"
+	path1, path3 := "./workload_for_testing", "workload_not_exist"
 	wl := InitWorkload()
 	if ret := wl.UpdateWorkloadByFile(path1); ret != 5 {
 		t.Errorf("ret=%v, want=5", ret)

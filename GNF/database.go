@@ -71,6 +71,7 @@ func getRemoteDBClients(wl *Workload, phase exePhase) []DBClient {
 				DB:       0,
 			})
 			clients[i] = DBClient(&RedisClient{*cli})
+		// as discussed in readme, add a switch case here to support a new DB backend
 		}
 	}
 	return clients
