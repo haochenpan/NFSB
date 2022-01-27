@@ -1,3 +1,0 @@
-controller_user_port : 6666
-controller_nf_port : 6667
-controller_stats_port : 6668
